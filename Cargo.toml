@@ -1,6 +1,7 @@
 [package]
-name = "rustboy-color"
+name = "rustboy_color"
 version = "0.1.0"
 authors = ["pdoro <pablo.doro92@gmail.com>"]
+edition = "2018"
 
 [dependencies]
