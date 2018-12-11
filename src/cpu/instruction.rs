@@ -2,6 +2,7 @@
 use crate::memory::Address;
 use std::fmt;
 
+#[derive(Clone)]
 pub enum Operand {
     // Cpu registers
     A, B, C, D, E, F, H, L,
@@ -9,7 +10,10 @@ pub enum Operand {
     HL, AF, BC, DE,
     // Special Registers
     SP, PC,
+    // Flags
+    Z, NZ, NC, // C name is reused as register
 
+    Bit,
     Word,
     DWord,
     Memory(Box<Operand>),
@@ -37,6 +41,7 @@ impl fmt::Debug for Operand {
             Operand::DWord => write!(f, "##"),
             Operand::Memory(addr) => write!(f, "({:?})", addr),
             Operand::OffsetMemory(offset, addr) => write!(f, "(0x{:X} + {:?})", offset, addr),
+            _ => write!(f, "XXX")
         }
     }
 }
@@ -64,9 +69,40 @@ pub enum Instruction {
 
     // Special Instructions
     SWAP(Operand),
-    HALT,
-    STOP,
+    DAA,
+    CPL,
+    CCF,
+    SCF,
     NOP,
+    HALT,
+    DI,
+    EI,
+
+    RLCA,
+    RLA,
+    RRCA,
+    RRA,
+    JP_(Operand),
+    JP(Operand, Operand),
+    JR_(Operand),
+    JR(Operand, Operand),
+    CALL_(Operand),
+    CALL(Operand, Operand),
+    RST(Operand),
+    RET_,
+    RET(Operand),
+    RETI,
+
+    RLC(Operand),
+    RL(Operand),
+    RRC(Operand),
+    RR(Operand),
+    SLA(Operand),
+    SRA(Operand),
+    SRL(Operand),
+    BIT(Operand, Operand),
+    SET(Operand, Operand),
+    RES(Operand, Operand),
 }
 
 impl From<u8> for Instruction {
@@ -357,6 +393,80 @@ impl From<u8> for Instruction {
             0x2B => DEC(HL),
             0x3B => DEC(SP),
 
+            // --------------- Miscellaneous ---------------
+            0x27 => DAA,
+            0x2F => CPL,
+            0x3F => CCF,
+            0x37 => SCF,
+            0x00 => NOP,
+            0x76 => HALT,
+            0xF3 => DI,
+            0xFB => EI,
+            // 0x1000 => STOP,
+
+            // --------------- Rotates & Shifts ---------------
+
+            0x07 => RLCA,
+            0x17 => RLA,
+            0x0F => RRCA,
+            0x1F => RRA,
+
+            // --------------- Jumps ---------------
+
+            // JP nn
+            0xC3 => JP_(DWord),
+
+            // JP cc, nn
+            0xC2 => JP(NZ, DWord),
+            0xCA => JP(Z, DWord),
+            0xD2 => JP(NC, DWord),
+            0xDA => JP(C, DWord),
+
+            // JP (HL)
+            0xE9 => JP_(Memory(Box::new(HL))),
+            // JR n
+            0x18 => JR_(Word),
+
+            // JR cc,n
+            0x20 => JR(NZ, DWord),
+            0x28 => JR(Z, DWord),
+            0x30 => JR(NC, DWord),
+            0x38 => JR(C, DWord),
+
+            // --------------- Calls ---------------
+
+            0xCD => CALL_(DWord),
+
+            // CALL cc,n
+            0xC4 => CALL(NZ, DWord),
+            0xCC => CALL(Z, DWord),
+            0xD4 => CALL(NC, DWord),
+            0xDC => CALL(C, DWord),
+
+            // --------------- Restarts ---------------
+
+            // TODO!
+            0xC7 => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xCF => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xD7 => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xDF => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xE7 => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xEF => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xF7 => RST(OffsetMemory(0x0000, Box::new(Word))),
+            0xFF => RST(OffsetMemory(0x0000, Box::new(Word))),
+
+            // --------------- Returns ---------------
+
+            0xC9 => RET_,
+
+            // RET cc
+            0xC0 => RET(NZ),
+            0xC8 => RET(Z),
+            0xD0 => RET(NC),
+            0xD8 => RET(C),
+
+            0xD9 => RETI,
+            
             _ => NOP
         }
     }
@@ -379,7 +489,107 @@ impl From<u16> for Instruction {
             0xCB35 => SWAP(L),
             0xCB36 => SWAP(Memory(Box::new(HL))),
 
+            // RLC n
+            0xCB07 => RLC(A),
+            0xCB00 => RLC(B),
+            0xCB01 => RLC(C),
+            0xCB02 => RLC(D),
+            0xCB03 => RLC(E),
+            0xCB04 => RLC(H),
+            0xCB05 => RLC(L),
+            0xCB06 => RLC(Memory(Box::new(HL))),
 
+            // RL n
+            0xCB17 => RL(A),
+            0xCB10 => RL(B),
+            0xCB11 => RL(C),
+            0xCB12 => RL(D),
+            0xCB13 => RL(E),
+            0xCB14 => RL(H),
+            0xCB15 => RL(L),
+            0xCB16 => RL(Memory(Box::new(HL))),
+
+            // RRC n
+            0xCB0F => RRC(A),
+            0xCB08 => RRC(B),
+            0xCB09 => RRC(C),
+            0xCB0A => RRC(D),
+            0xCB0B => RRC(E),
+            0xCB0C => RRC(H),
+            0xCB0D => RRC(L),
+            0xCB0E => RRC(Memory(Box::new(HL))),
+
+            // RR n
+            0xCB1F => RR(A),
+            0xCB18 => RR(B),
+            0xCB19 => RR(C),
+            0xCB1A => RR(D),
+            0xCB1B => RR(E),
+            0xCB1C => RR(H),
+            0xCB1D => RR(L),
+            0xCB1E => RR(Memory(Box::new(HL))),
+
+            // SLA n
+            0xCB27 => SLA(A),
+            0xCB20 => SLA(B),
+            0xCB21 => SLA(C),
+            0xCB22 => SLA(D),
+            0xCB23 => SLA(E),
+            0xCB24 => SLA(H),
+            0xCB25 => SLA(L),
+            0xCB26 => SLA(Memory(Box::new(HL))),
+
+            // SRA n
+            0xCB2F => SRA(A),
+            0xCB28 => SRA(B),
+            0xCB29 => SRA(C),
+            0xCB2A => SRA(D),
+            0xCB2B => SRA(E),
+            0xCB2C => SRA(H),
+            0xCB2D => SRA(L),
+            0xCB2E => SRA(Memory(Box::new(HL))),
+
+            // SRL n
+            0xCB3F => SRL(A),
+            0xCB38 => SRL(B),
+            0xCB39 => SRL(C),
+            0xCB3A => SRL(D),
+            0xCB3B => SRL(E),
+            0xCB3C => SRL(H),
+            0xCB3D => SRL(L),
+            0xCB3E => SRL(Memory(Box::new(HL))),
+
+            // Bit Opcodes
+
+            // BIT b,r
+            0xCB47 => BIT(Bit, A),
+            0xCB40 => BIT(Bit, B),
+            0xCB41 => BIT(Bit, C),
+            0xCB42 => BIT(Bit, D),
+            0xCB43 => BIT(Bit, E),
+            0xCB44 => BIT(Bit, H),
+            0xCB45 => BIT(Bit, L),
+            0xCB46 => BIT(Bit, Memory(Box::new(HL))),
+
+            // SET b,r
+            0xCBC7 => SET(Bit, A),
+            0xCBC0 => SET(Bit, B),
+            0xCBC1 => SET(Bit, C),
+            0xCBC2 => SET(Bit, D),
+            0xCBC3 => SET(Bit, E),
+            0xCBC4 => SET(Bit, H),
+            0xCBC5 => SET(Bit, L),
+            0xCBC6 => SET(Bit, Memory(Box::new(HL))),
+
+            // RES b,r
+            0xCB87 => RES(Bit, A),
+            0xCB80 => RES(Bit, B),
+            0xCB81 => RES(Bit, C),
+            0xCB82 => RES(Bit, D),
+            0xCB83 => RES(Bit, E),
+            0xCB84 => RES(Bit, H),
+            0xCB85 => RES(Bit, L),
+            0xCB86 => RES(Bit, Memory(Box::new(HL))),
 
             _ => NOP
         }

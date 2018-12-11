@@ -1,4 +1,4 @@
-
+mod utils;
 mod memory;
 mod cpu;
 

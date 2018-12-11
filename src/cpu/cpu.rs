@@ -10,58 +10,11 @@ use crate::memory::Address;
 
 use std::ops::IndexMut;
 use crate::cpu::instruction::Instruction::*;
+use super::instruction::Operand::*;
+use super::register::*;
+use crate::utils::as_u16;
 
 type OpCode = u8;
-
-struct Register {
-    A: u8,
-    B: u8,
-    C: u8,
-    D: u8,
-    E: u8,
-    F: u8,
-    H: u8,
-    L: u8,
-
-    SP: u16,
-    PC: u16,
-}
-
-impl Register {
-    // Special registers
-    fn AF(&self) -> u16 {
-        (self.A as u16) << 8 | self.F as u16
-    }
-
-    fn HL(&self) -> u16 {
-        (self.H as u16) << 8 | self.L as u16
-    }
-
-    fn BC(&self) -> u16 {
-        (self.B as u16) << 8 | self.C as u16
-    }
-
-    fn DE(&self) -> u16 {
-        (self.D as u16) << 8 | self.E as u16
-    }
-
-    pub fn new() -> Register {
-        Register {
-            A: 0,
-            B: 0,
-            C: 0,
-            D: 0,
-            E: 0,
-            F: 0,
-            H: 0,
-            L: 0,
-
-            SP: 0,
-            PC: 0xFFFE,
-        }
-    }
-}
-
 
 pub struct CPU {
     register: Register,
@@ -112,37 +65,134 @@ impl CPU {
         println!("{:?}", instruction);
 
         match instruction {
-
-            LD8( op1, op2 ) => {
-                //let data = self.read_byte(op2);
-                //self.write_byte(op1, data);//self.cycle += cycles as u32;
-            }
-            NOP => {},
-            _ => println!("Unknown instruction"),
+            LD8(op1, op2) => {
+                let data = self.read_word(op2);
+                self.write_word(op1, data);
+            },
+            LD16(op1, op2) => {},
+            LDD(op1, op2) => {},
+            LDI(op1, op2) => {},
+            LDH(op1, op2) => {},
+            LDHL(op1, op2) => {},
+            PUSH(op) => {},
+            POP(op) => {},
+            ADD(op1, op2) => {
+                let n = self.read_word(op2);
+                self[A] += n;
+                // TODO flags
+            },
+            ADC(op1, op2) => {},
+            SUB(op) => {
+                let n = self.read_word(op);
+                self[A] -= n;
+                // TODO flags
+            },
+            SBC(op1, op2) => {},
+            AND(op) => {
+                let n = self.read_word(op);
+                self[A] &= n;
+                // TODO flags
+            },
+            OR(op) => {
+                let n = self.read_word(op);
+                self[A] |= n;
+                // TODO flags
+            },
+            XOR(op) => {
+                let n = self.read_word(op);
+                self[A] ^= n;
+                // TODO flags
+            },
+            CP(op) => {},
+            INC(op) => {
+                let n = self.read_word(op.clone());
+                self.write_word(op, n + 1);
+                // TODO flags
+            },
+            DEC(op) => {
+                let n = self.read_word(op.clone());
+                self.write_word(op, n - 1);
+                // TODO flags
+            },
+            SWAP(op) => {},
+            DAA => {},
+            CPL => {},
+            CCF => {},
+            SCF => {},
+            NOP => (),
+            HALT => {},
+            DI => {},
+            EI => {},
+            RLCA => {},
+            RLA => {},
+            RRCA => {},
+            RRA => {},
+            JP_(op) => {
+                //self[PC] = self.read_dword(op);
+            },
+            JP(op1, op2) => {},
+            JR_(op) => {},
+            JR(op1, op2) => {},
+            CALL_(op) => {},
+            CALL(op1, op2) => {},
+            RST(op) => {},
+            RET_ => {},
+            RET(op) => {},
+            RETI => {},
+            RLC(op) => {},
+            RL(op) => {},
+            RRC(op) => {},
+            RR(op) => {},
+            SLA(op) => {},
+            SRA(op) => {},
+            SRL(op) => {},
+            BIT(op1, op2) => {},
+            SET(op1, op2) => {},
+            RES(op1, op2) => {},
         }
     }
 
 
-//    fn read_byte(&mut self, operand: Operand) -> u8 {
-//        match &operand {
-//            Operand::Register(reg) => self[reg],
-//            Operand::Byte => self.fetch(),
-//            Operand::DoubleByte => 2,
-//            Operand::MemoryAddress(addr) => {
-//                //self.read_byte(addr)
-//                // self.bus.read( data )
-//                1
-//            }
-//        }
-//    }
+    fn read_word(&mut self, operand: Operand) -> u8 {
 
-//    fn write_byte(&mut self, operand: Operand, data: u8) {
-//        match operand {
-//            Operand::Register(reg) => self[reg] = data,
-//            Operand::MemoryAddress(addr) => {},
-//            _ => panic!("error"),
-//        }
-//    }
+        match operand {
+            A | B | C | D | E | F | H | L => {
+                self[operand]
+            }
+            Memory(addr) => {0},
+            OffsetMemory(offset, addr) => {0},
+            Word => self.fetch(),
+            _ => panic!("Invalid read operand {:?}", operand)
+        }
+    }
+
+    fn write_word(&mut self, operand: Operand, data: u8) {
+
+        match operand {
+            A | B | C | D | E | F | H | L => {
+                self[operand] = data;
+            }
+            HL => {},
+            AF => {},
+            BC => {},
+            DE => {},
+            SP => {},
+            PC => {},
+            Memory(addr) => {
+                let addr = self.read_word(*addr);
+
+            },
+            OffsetMemory(offset, addr) => {},
+            _ => panic!("Invalid operand {:?}", operand)
+        }
+    }
+
+    fn read_dword(&mut self, operand: Operand) -> u16 {
+        as_u16(
+            self.read_word(operand.clone()),
+            self.read_word(operand)
+        )
+    }
 }
 
 impl IndexMut<Operand> for CPU {
