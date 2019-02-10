@@ -1,14 +1,12 @@
 
-use std::ops::Index;
+use log::{trace, debug, info};
+use std::ops;
 use std::fmt;
-use std::fmt::Formatter;
-use std::fmt::Error;
 use super::instruction::Instruction;
 use super::instruction::Operand;
 use crate::memory::MemorySpace;
 use crate::memory::Address;
 
-use std::ops::IndexMut;
 use crate::cpu::instruction::Instruction::*;
 use super::instruction::Operand::*;
 use super::register::*;
@@ -16,6 +14,7 @@ use crate::utils::as_u16;
 
 type OpCode = u8;
 
+#[derive(Debug)]
 pub struct CPU {
     register: Register,
     memory: MemorySpace,
@@ -25,14 +24,17 @@ pub struct CPU {
 impl CPU {
 
     pub fn new(memory: MemorySpace) -> CPU {
-        CPU {
+        let cpu = CPU {
             register: Register::new(),
             memory,
             cycle: 0
-        }
+        };
+        debug!("CPU initialized. {:#?}", cpu);
+        cpu
     }
 
     pub fn run(mut self) {
+        debug!("Fetch-Decode-Execute loop starting");
         loop {
             let opcode = self.fetch();
             let instruction = self.decode( opcode );
@@ -41,6 +43,7 @@ impl CPU {
     }
 
     pub fn fetch(&mut self) -> OpCode {
+        trace!("Fetching next byte. SP : {:#?}", self.register.SP);
         let data = self.memory[ self.register.SP ];
         self.register.SP += 1;
 
@@ -48,6 +51,7 @@ impl CPU {
     }
 
     pub fn decode(&mut self, opcode: OpCode) -> Instruction {
+        trace!("Decoding opcode {:#X}", opcode);
         match opcode {
             // Special instructions
             0xCB => {
@@ -62,7 +66,7 @@ impl CPU {
 
     fn execute(&mut self, instruction: Instruction) {
 
-        println!("{:?}", instruction);
+        trace!("Executing {:?}", instruction);
 
         match instruction {
             LD8(op1, op2) => {
@@ -155,6 +159,8 @@ impl CPU {
 
     fn read_word(&mut self, operand: Operand) -> u8 {
 
+        trace!("Reading word from operand {:?}", operand);
+
         match operand {
             A | B | C | D | E | F | H | L => {
                 self[operand]
@@ -162,11 +168,13 @@ impl CPU {
             Memory(addr) => {0},
             OffsetMemory(offset, addr) => {0},
             Word => self.fetch(),
-            _ => panic!("Invalid read operand {:?}", operand)
+            _ => panic!("Invalid operand to read from {:?}", operand)
         }
     }
 
     fn write_word(&mut self, operand: Operand, data: u8) {
+
+        trace!("Writing word into operand {:?}", operand);
 
         match operand {
             A | B | C | D | E | F | H | L => {
@@ -183,11 +191,12 @@ impl CPU {
 
             },
             OffsetMemory(offset, addr) => {},
-            _ => panic!("Invalid operand {:?}", operand)
+            _ => panic!("Invalid operand to write into {:?}", operand)
         }
     }
 
     fn read_dword(&mut self, operand: Operand) -> u16 {
+        trace!("Reading double word from operand {:?}", operand);
         as_u16(
             self.read_word(operand.clone()),
             self.read_word(operand)
@@ -195,7 +204,7 @@ impl CPU {
     }
 }
 
-impl IndexMut<Operand> for CPU {
+impl ops::IndexMut<Operand> for CPU {
 
     fn index_mut(&mut self, register: Operand) -> &mut u8 {
         match register {
@@ -212,7 +221,7 @@ impl IndexMut<Operand> for CPU {
     }
 }
 
-impl Index<Operand> for CPU {
+impl ops::Index<Operand> for CPU {
     type Output = u8;
 
     fn index(& self, register: Operand) -> & Self::Output {

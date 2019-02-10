@@ -5,3 +5,6 @@ authors = ["pdoro <pablo.doro92@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+log = "0.4"
+fern = { version = "0.5", features = ["colored"] }
+chrono = "0.4"

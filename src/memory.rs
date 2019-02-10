@@ -1,4 +1,5 @@
 use std::ops::Index;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Address(pub u16);
@@ -41,6 +42,12 @@ impl Index<u16> for MemorySpace {
         } else {
             &self.0[ address as usize ]
         }
+    }
+}
+
+impl std::fmt::Debug for MemorySpace {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Memory({:?} bytes)", self.0.len())
     }
 }
 

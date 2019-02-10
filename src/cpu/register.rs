@@ -1,6 +1,7 @@
 
 use crate::utils::as_u16;
 
+#[derive(Debug)]
 pub struct Register {
     pub A: u8,
     pub B: u8,
