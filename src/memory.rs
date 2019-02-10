@@ -1,5 +1,6 @@
 use std::ops::Index;
 use std::fmt;
+use std::ops;
 
 #[derive(Debug)]
 pub struct Address(pub u16);
@@ -9,10 +10,8 @@ pub struct MemorySpace([u8; 256]);
 
 impl MemorySpace {
     pub fn new() -> MemorySpace {
-
         let mut memory = [0; 256];
         memory[0..BOOT_ROM.len()].copy_from_slice( &BOOT_ROM );
-
         MemorySpace(memory)
     }
 }

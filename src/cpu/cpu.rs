@@ -43,7 +43,7 @@ impl CPU {
     }
 
     pub fn fetch(&mut self) -> OpCode {
-        trace!("Fetching next byte. SP : {:#?}", self.register.SP);
+        trace!("Fetching next byte. SP: {:#?}", self.register.SP);
         let data = self.memory[ self.register.SP ];
         self.register.SP += 1;
 
@@ -65,8 +65,7 @@ impl CPU {
     }
 
     fn execute(&mut self, instruction: Instruction) {
-
-        trace!("Executing {:?}", instruction);
+        trace!("Executing {:?}. Cycle: {}", instruction, self.cycle);
 
         match instruction {
             LD8(op1, op2) => {
@@ -154,26 +153,26 @@ impl CPU {
             SET(op1, op2) => {},
             RES(op1, op2) => {},
         }
+
+        self.cycle += 1;
     }
 
 
     fn read_word(&mut self, operand: Operand) -> u8 {
-
         trace!("Reading word from operand {:?}", operand);
 
         match operand {
-            A | B | C | D | E | F | H | L => {
-                self[operand]
-            }
-            Memory(addr) => {0},
-            OffsetMemory(offset, addr) => {0},
+            A | B | C | D | E | F | H | L => self[operand],
+            Memory(addr, offset) => {
+                let address = self.read_word(*addr) as u16 + offset;
+                self.memory[address]
+            },
             Word => self.fetch(),
             _ => panic!("Invalid operand to read from {:?}", operand)
         }
     }
 
     fn write_word(&mut self, operand: Operand, data: u8) {
-
         trace!("Writing word into operand {:?}", operand);
 
         match operand {
@@ -186,21 +185,30 @@ impl CPU {
             DE => {},
             SP => {},
             PC => {},
-            Memory(addr) => {
-                let addr = self.read_word(*addr);
-
+            Memory(addr, offset) => {
+                let addr = self.read_word(*addr) as u16 + offset;
+                //self.memory[addr] = data;
             },
-            OffsetMemory(offset, addr) => {},
             _ => panic!("Invalid operand to write into {:?}", operand)
         }
     }
 
     fn read_dword(&mut self, operand: Operand) -> u16 {
         trace!("Reading double word from operand {:?}", operand);
-        as_u16(
-            self.read_word(operand.clone()),
-            self.read_word(operand)
-        )
+
+        match operand {
+            Operand::HL => self.register.HL(),
+            Operand::AF => self.register.AF(),
+            Operand::BC => self.register.BC(),
+            Operand::DE => self.register.DE(),
+            Operand::SP => self.register.SP,
+            Operand::PC => self.register.PC,
+            Operand::DWord => as_u16(
+                self.read_word(operand.clone()),
+                self.read_word(operand)
+            ),
+            _ => panic!("Invalid operand to read from {:?}", operand)
+        }
     }
 }
 

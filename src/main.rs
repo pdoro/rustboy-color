@@ -1,10 +1,10 @@
+extern crate chrono;
+
 use log::{info, debug, error};
 mod utils;
 mod memory;
 mod cpu;
 use std::panic;
-
-extern crate chrono;
 
 fn main() {
     setup_logger();
@@ -14,10 +14,12 @@ fn main() {
     let mut cpu = cpu::cpu::CPU::new(memory);
     info!("Execution started");
 
+    /*
     panic:: catch_unwind(|| {
         error!("[=============== ERROR REPORT ===============]");
         error!("{:#?}", cpu);
     });
+    */
 
     cpu.run();
     info!("Execution finished");

@@ -1,7 +1,7 @@
 
 use crate::utils::as_u16;
+use std::fmt;
 
-#[derive(Debug)]
 pub struct Register {
     pub A: u8,
     pub B: u8,
@@ -18,19 +18,19 @@ pub struct Register {
 
 impl Register {
     // Special registers
-    fn AF(&self) -> u16 {
+    pub fn AF(&self) -> u16 {
         as_u16(self.A, self.F)
     }
 
-    fn HL(&self) -> u16 {
+    pub fn HL(&self) -> u16 {
         as_u16(self.H, self.L)
     }
 
-    fn BC(&self) -> u16 {
+    pub fn BC(&self) -> u16 {
         as_u16(self.B, self.C)
     }
 
-    fn DE(&self) -> u16 {
+    pub fn DE(&self) -> u16 {
         as_u16(self.D, self.E)
     }
 
@@ -48,5 +48,12 @@ impl Register {
             SP: 0,
             PC: 0xFFFE,
         }
+    }
+}
+
+impl std::fmt::Debug for Register {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Register(A: {:#X}, B: {:#X}, C: {:#X}, D: {:#X}, E: {:#X}, F: {:#X}, H: {:#X}, L: {:#X}, SP: {:#X}, PC: {:#X})",
+               self.A, self.B, self.C, self.D, self.E, self.F, self.H, self.L, self.SP, self.PC)
     }
 }
