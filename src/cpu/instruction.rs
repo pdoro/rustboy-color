@@ -11,7 +11,7 @@ pub enum Operand {
     // Special Registers
     SP, PC,
     // Flags
-    Z, NZ, NC, // C name is reused as register
+    Zero, NoZero, Carry, NoCarry,
 
     Bit,
     Word,
@@ -81,11 +81,11 @@ pub enum Instruction {
     RLA,
     RRCA,
     RRA,
-    JP_(Operand),
+    JP1(Operand),
     JP(Operand, Operand),
-    JR_(Operand),
+    JR1(Operand),
     JR(Operand, Operand),
-    CALL_(Operand),
+    CALL1(Operand),
     CALL(Operand, Operand),
     RST(Operand),
     RET_,
@@ -413,7 +413,7 @@ impl From<u8> for Instruction {
             // --------------- Jumps ---------------
 
             // JP nn
-            0xC3 => JP_(DWord),
+            0xC3 => JP1(DWord),
 
             // JP cc, nn
             0xC2 => JP(NZ, DWord),
@@ -422,9 +422,9 @@ impl From<u8> for Instruction {
             0xDA => JP(C, DWord),
 
             // JP (HL)
-            0xE9 => JP_(Memory(Box::new(HL), 0)),
+            0xE9 => JP1(Memory(Box::new(HL), 0)),
             // JR n
-            0x18 => JR_(Word),
+            0x18 => JR1(Word),
 
             // JR cc,n
             0x20 => JR(NZ, DWord),
@@ -434,7 +434,7 @@ impl From<u8> for Instruction {
 
             // --------------- Calls ---------------
 
-            0xCD => CALL_(DWord),
+            0xCD => CALL1(DWord),
 
             // CALL cc,n
             0xC4 => CALL(NZ, DWord),
@@ -462,7 +462,7 @@ impl From<u8> for Instruction {
             0xC0 => RET(NZ),
             0xC8 => RET(Z),
             0xD0 => RET(NC),
-            0xD8 => RET(C),
+            0xD8 => RET(C_),
 
             0xD9 => RETI,
             

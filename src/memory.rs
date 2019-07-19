@@ -4,7 +4,7 @@ use std::ops;
 
 #[derive(Debug)]
 pub struct Address(pub u16);
-type byte = u8;
+type Byte = u8;
 
 pub struct MemorySpace([u8; 256]);
 
@@ -19,9 +19,8 @@ impl MemorySpace {
 const MEMORY_START: Address = Address(0x0000);
 const MEMORY_END: Address   = Address(0xFFFF);
 
-
 impl Index<Address> for MemorySpace {
-    type Output = byte;
+    type Output = Byte;
 
     fn index(&self, address: Address) -> &Self::Output {
         if address.0 < MEMORY_START.0 || address.0 > MEMORY_END.0 {
@@ -32,8 +31,9 @@ impl Index<Address> for MemorySpace {
     }
 }
 
+/*
 impl Index<u16> for MemorySpace {
-    type Output = byte;
+    type Output = Byte;
 
     fn index(&self, address: u16) -> &Self::Output {
         if address < MEMORY_START.0 || address > MEMORY_END.0 {
@@ -42,7 +42,7 @@ impl Index<u16> for MemorySpace {
             &self.0[ address as usize ]
         }
     }
-}
+}*/
 
 impl std::fmt::Debug for MemorySpace {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -50,7 +50,7 @@ impl std::fmt::Debug for MemorySpace {
     }
 }
 
-const BOOT_ROM: [byte; 256] = [
+const BOOT_ROM: [Byte; 256] = [
     0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
     0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,
     0x47, 0x11, 0x04, 0x01, 0x21, 0x10, 0x80, 0x1A, 0xCD, 0x95, 0x00, 0xCD, 0x96, 0x00, 0x13, 0x7B,

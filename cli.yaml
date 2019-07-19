@@ -1,0 +1,23 @@
+name: rustboy-color
+version: "1.0"
+author: Pablo D.R. <pablo.doro92@gmail.com>
+about: Gameboy emulator written in Rust
+args:
+  - verbose:
+      short: v
+      long: verbose
+      value_name: LEVEL
+      takes_value: true
+      default_value: trace
+      multiple: false
+      help: Sets the level of verbosity
+      possible_values: [ error, warn, info, debug, trace, off ]
+  - gui:
+      short: g
+      long: gui
+      value_name: GUI_STATUS
+      takes_value: true
+      default_value: "off"
+      multiple: false
+      help: Enables/disables the graphical user interface
+      possible_values: [ on, off ]
