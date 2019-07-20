@@ -71,50 +71,50 @@ impl CPU {
 
         match instruction {
             LD8(op1, op2) => {
-                let data = self.read_word(op2);
-                self.write_word(op1, data);
+                let data: u8 = self.read(op2);
+                self.write(op1, data);
             },
             LD16(op1, op2) => {
-                let data = self.read_dword(op2);
-                self.write_dword(op1, data);
+                let data: u16 = self.read(op2);
+                self.write(op1, data);
             },
             LDD(op1, op2) => {
-                let data = self.read_word(op2);
-                self.write_word(op1, data);
+                let data: u8 = self.read(op2);
+                self.write(op1, data);
                 // DEC self.register.HL()
             },
             LDI(op1, op2) => {
-                let data = self.read_word(op2);
-                self.write_word(op1, data);
+                let data: u8 = self.read(op2);
+                self.write(op1, data);
                 // INC self.register.HL()
             },
             LDH(op1, op2) => {
-                let data = self.read_word(op2);
-                self.write_word(op1, data);
+                let data: u8 = self.read(op2);
+                self.write(op1, data);
             },
             LDHL(_, op2) => {
-                let offset = self.read_word(op2) as u16;
-                let addr = self.register.SP + offset;
-                //self.write_dword(op2, addr);
+                let offset: u8 = self.read(op2);
+                let addr = self.register.SP + offset as u16;
+                //self.write(op2, addr);
                 // Write addr to HL
             },
             PUSH(op) => {
-                let data = self.read_word(op);
-                self.write_word( Operand::SP, data );
+                let data: u8 = self.read(op);
+                self.write( Operand::SP, data );
                 self.register.SP -= 2;
             },
             POP(op) => {
-                let data = self.memory[ self.register.SP ] as u16;
-                self.write_dword(op, data);
+                let data = self.memory[ self.register.SP ];
+                self.write(op, data);
                 self.register.SP += 2;
             },
             ADD8(op1, op2) => {
-                let n = self.read_word(op2);
+                let n: u8 = self.read(op2);
                 self.register[A] += n;
                 // TODO flags
             },
             ADD16(op1, op2) => {
-                let n = self.read_dword(op2);
+                let n: u8 = self.read(op2);
                 //self.register[ op1 ] += n;
                 // TODO flags
             },
@@ -122,66 +122,66 @@ impl CPU {
 
             },
             SUB(op) => {
-                let n = self.read_word(op);
+                let n: u8 = self.read(op);
                 self.register[A] -= n;
                 // TODO flags
             },
             SBC(op1, op2) => {},
             AND(op) => {
-                let n = self.read_word(op);
+                let n: u8 = self.read(op);
                 self.register[A] &= n;
                 // TODO flags
             },
             OR(op) => {
-                let n = self.read_word(op);
+                let n: u8 = self.read(op);
                 self.register[A] |= n;
                 // TODO flags
             },
             XOR(op) => {
-                let n = self.read_word(op);
+                let n: u8 = self.read(op);
                 self.register[A] ^= n;
                 // TODO flags
             },
             CP(op) => {},
             INC8(op) => {
-                let n = self.read_word(op.clone());
+                let n: u8 = self.read(op.clone());
                 let (result, overflow) = n.overflowing_add(1);
-                self.write_word(op, result);
+                self.write(op, result);
 
                 if overflow {
                     // TODO flags
                 }
             },
             INC16(op) => {
-                let n = self.read_dword(op.clone());
+                let n: u16 = self.read(op.clone());
                 let (result, overflow) = n.overflowing_add(1);
-                self.write_dword(op, result);
+                self.write(op, result);
 
                 if overflow {
                     // TODO flags
                 }
             },
             DEC8(op) => {
-                let n = self.read_word(op.clone());
+                let n: u8 = self.read(op.clone());
                 let (result, overflow) = n.overflowing_sub(1);
-                self.write_word(op, result);
+                self.write(op, result);
 
                 if overflow {
                     // TODO flags
                 }
             },
             DEC16(op) => {
-                let n = self.read_dword(op.clone());
+                let n: u16 = self.read(op.clone());
                 let (result, overflow) = n.overflowing_sub(1);
-                self.write_dword(op, result);
+                self.write(op, result);
 
                 if overflow {
                     // TODO flags
                 }
             },
             SWAP(op) => {
-                let n = self.read_word(op.clone());
-                self.write_word(op, n.swap_bytes());
+                let n: u8 = self.read(op.clone());
+                self.write(op, n.swap_bytes());
             },
             DAA => {},
             CPL => {
@@ -207,7 +207,7 @@ impl CPU {
             },
             RRA => {},
             JP1(op) => {
-                //self[PC] = self.read_dword(op);
+                //self[PC] = self.read(op);
             },
             JP(op1, op2) => {},
             JR1(op) => {},
@@ -230,8 +230,40 @@ impl CPU {
             RES(op1, op2) => {},
         }
     }
+}
 
-    fn write_word(&mut self, operand: Operand, data: u8) {
+trait ReadWrite<T> {
+    fn read(&mut self, operand: Operand) -> T;
+    fn write(&mut self, operand: Operand, data: T);
+}
+
+impl ReadWrite<u8> for CPU {
+    fn read(&mut self, operand: Operand) -> u8 {
+        let op = operand.clone();
+
+        let word = match operand {
+            A | B | C | D | E | F | H | L => {
+                // reading registers does not consume cycles
+                self.register[operand]
+            },
+            Memory(addr, offset) => {
+                self.cycle += 4;
+                let tmp: u16 = self.read(*addr);
+                let address = tmp + offset;
+                self.memory[address]
+            },
+            Word => {
+                self.cycle += 4;
+                self.fetch()
+            },
+            _ => panic!("Invalid operand {:?} to read word", operand)
+        };
+
+        trace!("Read word {:#X} from operand {:?}", word, op);
+        word
+    }
+
+    fn write(&mut self, operand: Operand, data: u8) {
         trace!("Writing word {:#X} into {:?}", data, operand);
 
         match operand {
@@ -247,39 +279,17 @@ impl CPU {
             PC => {},
             Memory(addr, offset) => {
                 self.cycle += 4;
-                let addr = self.read_dword(*addr) as u16 + offset;
+                let tmp: u16 = self.read(*addr);
+                let addr = tmp + offset;
                 self.memory[addr] = data;
             },
             _ => panic!("Invalid operand {:?} to write word", operand)
         }
     }
+}
 
-    fn read_word(&mut self, operand: Operand) -> u8 {
-
-        let op = operand.clone();
-
-        let word = match operand {
-            A | B | C | D | E | F | H | L => {
-                // reading registers does not consume cycles
-                self.register[operand]
-            },
-            Memory(addr, offset) => {
-                self.cycle += 4;
-                let address = self.read_dword(*addr) + offset;
-                self.memory[address]
-            },
-            Word => {
-                self.cycle += 4;
-                self.fetch()
-            },
-            _ => panic!("Invalid operand {:?} to read word", operand)
-        };
-
-        trace!("Read word {:#X} from operand {:?}", word, op);
-        word
-    }
-
-    fn read_dword(&mut self, operand: Operand) -> u16 {
+impl ReadWrite<u16> for CPU {
+    fn read(&mut self, operand: Operand) -> u16 {
         let op = operand.clone();
 
         let dword = match operand {
@@ -292,11 +302,11 @@ impl CPU {
             DE => self.register.read_DE(),
             SP => self.register.SP,
             PC => self.register.PC,
-            Word => self.read_word(operand) as u16,
+            Word => as_u16(0, self.read(operand)),
             DWord => {
                 as_u16(
-                    self.read_word(Word),
-                    self.read_word(Word)
+                    self.read(Word),
+                    self.read(Word)
                 )
             },
             _ => panic!("Invalid operand {:?} to read double word", operand)
@@ -306,7 +316,7 @@ impl CPU {
         dword
     }
 
-    fn write_dword(&mut self, operand: Operand, data: u16)  {
+    fn write(&mut self, operand: Operand, data: u16) {
         trace!("Writing dword {:#X} into operand {:?}", data, operand);
 
         match &operand {
