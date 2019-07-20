@@ -22,21 +22,47 @@ pub struct Registers {
 #[allow(non_snake_case)]
 impl Registers {
     // Special registers
-    pub fn AF(&self) -> u16 {
+    pub fn read_AF(&self) -> u16 {
         as_u16(self.A, self.F)
     }
 
-    pub fn HL(&self) -> u16 {
+    pub fn read_HL(&self) -> u16 {
         as_u16(self.H, self.L)
     }
 
-    pub fn BC(&self) -> u16 {
+    pub fn read_BC(&self) -> u16 {
         as_u16(self.B, self.C)
     }
 
-    pub fn DE(&self) -> u16 {
+    pub fn read_DE(&self) -> u16 {
         as_u16(self.D, self.E)
     }
+
+    // Write operations
+    pub fn write_AF(&mut self, data: u16) {
+        let bytes = data.to_be_bytes();
+        self.A = bytes[0];
+        self.F = bytes[1];
+    }
+
+    pub fn write_HL(&mut self, data: u16) {
+        let bytes = data.to_be_bytes();
+        self.H = bytes[0];
+        self.L = bytes[1];
+    }
+
+    pub fn write_BC(&mut self, data: u16) {
+        let bytes = data.to_be_bytes();
+        self.B = bytes[0];
+        self.C = bytes[1];
+    }
+
+    pub fn write_DE(&mut self, data: u16) {
+        let bytes = data.to_be_bytes();
+        self.D = bytes[0];
+        self.E = bytes[1];
+    }
+
 
     pub fn new() -> Registers {
         Registers {

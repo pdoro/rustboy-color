@@ -1,5 +1,4 @@
 
-use crate::memory::Address;
 use std::fmt;
 
 #[derive(Clone)]
@@ -36,8 +35,8 @@ impl fmt::Debug for Operand {
             Operand::DE => write!(f, "DE"),
             Operand::SP => write!(f, "SP"),
             Operand::PC => write!(f, "PC"),
-            Operand::Word => write!(f, "#"),
-            Operand::DWord => write!(f, "##"),
+            Operand::Word => write!(f, "Imm Word"),
+            Operand::DWord => write!(f, "Imm DWord"),
             Operand::Memory(addr, 0) => write!(f, "({:?})", addr),
             Operand::Memory(addr, offset) => write!(f, "({:?} + 0x{:X})", addr, offset),
             _ => write!(f, "XXX")
@@ -55,7 +54,8 @@ pub enum Instruction {
     LDHL(Operand, Operand),
     PUSH(Operand),
     POP(Operand),
-    ADD(Operand, Operand),
+    ADD8(Operand, Operand),
+    ADD16(Operand, Operand),
     ADC(Operand, Operand),
     SUB(Operand),
     SBC(Operand, Operand),
@@ -63,8 +63,10 @@ pub enum Instruction {
     OR(Operand),
     XOR(Operand),
     CP(Operand),
-    INC(Operand),
-    DEC(Operand),
+    INC8(Operand),
+    DEC8(Operand),
+    INC16(Operand),
+    DEC16(Operand),
 
     // Special Instructions
     SWAP(Operand),
@@ -262,15 +264,15 @@ impl From<u8> for Instruction {
             // --------------- 8 BIT ALU ---------------
 
             // ADD A,n
-            0x80 => ADD(A, B),
-            0x81 => ADD(A, C),
-            0x82 => ADD(A, D),
-            0x83 => ADD(A, E),
-            0x84 => ADD(A, H),
-            0x85 => ADD(A, L),
-            0x86 => ADD(A, Memory(Box::new(HL), 0)),
-            0x87 => ADD(A, Word),
-            0x87 => ADD(A, A),
+            0x80 => ADD8(A, B),
+            0x81 => ADD8(A, C),
+            0x82 => ADD8(A, D),
+            0x83 => ADD8(A, E),
+            0x84 => ADD8(A, H),
+            0x85 => ADD8(A, L),
+            0x86 => ADD8(A, Memory(Box::new(HL), 0)),
+            0x87 => ADD8(A, Word),
+            0x87 => ADD8(A, A),
 
             // ADC A,n
             0x8F => ADC(A,A),
@@ -350,47 +352,47 @@ impl From<u8> for Instruction {
             0xFE => CP(Word),
 
             // INC n
-            0x3C => INC(A),
-            0x04 => INC(B),
-            0x0C => INC(C),
-            0x14 => INC(D),
-            0x1C => INC(E),
-            0x24 => INC(H),
-            0x2C => INC(L),
-            0x34 => INC(Memory(Box::new(HL), 0)),
+            0x3C => INC8(A),
+            0x04 => INC8(B),
+            0x0C => INC8(C),
+            0x14 => INC8(D),
+            0x1C => INC8(E),
+            0x24 => INC8(H),
+            0x2C => INC8(L),
+            0x34 => INC8(Memory(Box::new(HL), 0)),
 
             // DEC n
-            0x3D => DEC(A),
-            0x05 => DEC(B),
-            0x0D => DEC(C),
-            0x15 => DEC(D),
-            0x1D => DEC(E),
-            0x25 => DEC(H),
-            0x2D => DEC(L),
-            0x35 => DEC(Memory(Box::new(HL), 0)),
+            0x3D => DEC8(A),
+            0x05 => DEC8(B),
+            0x0D => DEC8(C),
+            0x15 => DEC8(D),
+            0x1D => DEC8(E),
+            0x25 => DEC8(H),
+            0x2D => DEC8(L),
+            0x35 => DEC8(Memory(Box::new(HL), 0)),
 
             // --------------- 16-Bit Arithmetic ---------------
 
             // ADD HL,n
-            0x09 => ADD(HL,BC),
-            0x19 => ADD(HL,DE),
-            0x29 => ADD(HL,HL),
-            0x39 => ADD(HL,SP),
+            0x09 => ADD16(HL,BC),
+            0x19 => ADD16(HL,DE),
+            0x29 => ADD16(HL,HL),
+            0x39 => ADD16(HL,SP),
 
             // ADD SP,n
-            0xE8 => ADD(SP,Word),
+            0xE8 => ADD16(SP,Word),
 
             // INC nn
-            0x03 => INC(BC),
-            0x13 => INC(DE),
-            0x23 => INC(HL),
-            0x33 => INC(SP),
+            0x03 => INC16(BC),
+            0x13 => INC16(DE),
+            0x23 => INC16(HL),
+            0x33 => INC16(SP),
 
             // DEC nn
-            0x0B => DEC(BC),
-            0x1B => DEC(DE),
-            0x2B => DEC(HL),
-            0x3B => DEC(SP),
+            0x0B => DEC16(BC),
+            0x1B => DEC16(DE),
+            0x2B => DEC16(HL),
+            0x3B => DEC16(SP),
 
             // --------------- Miscellaneous ---------------
             0x27 => DAA,
@@ -416,10 +418,10 @@ impl From<u8> for Instruction {
             0xC3 => JP1(DWord),
 
             // JP cc, nn
-            0xC2 => JP(NZ, DWord),
-            0xCA => JP(Z, DWord),
-            0xD2 => JP(NC, DWord),
-            0xDA => JP(C, DWord),
+            0xC2 => JP(NoZero, DWord),
+            0xCA => JP(Zero, DWord),
+            0xD2 => JP(NoCarry, DWord),
+            0xDA => JP(Carry, DWord),
 
             // JP (HL)
             0xE9 => JP1(Memory(Box::new(HL), 0)),
@@ -427,20 +429,20 @@ impl From<u8> for Instruction {
             0x18 => JR1(Word),
 
             // JR cc,n
-            0x20 => JR(NZ, DWord),
-            0x28 => JR(Z, DWord),
-            0x30 => JR(NC, DWord),
-            0x38 => JR(C, DWord),
+            0x20 => JR(NoZero, DWord),
+            0x28 => JR(Zero, DWord),
+            0x30 => JR(NoCarry, DWord),
+            0x38 => JR(Carry, DWord),
 
             // --------------- Calls ---------------
 
             0xCD => CALL1(DWord),
 
             // CALL cc,n
-            0xC4 => CALL(NZ, DWord),
-            0xCC => CALL(Z, DWord),
-            0xD4 => CALL(NC, DWord),
-            0xDC => CALL(C, DWord),
+            0xC4 => CALL(NoZero, DWord),
+            0xCC => CALL(Zero, DWord),
+            0xD4 => CALL(NoCarry, DWord),
+            0xDC => CALL(Carry, DWord),
 
             // --------------- Restarts ---------------
 
@@ -459,10 +461,10 @@ impl From<u8> for Instruction {
             0xC9 => RET_,
 
             // RET cc
-            0xC0 => RET(NZ),
-            0xC8 => RET(Z),
-            0xD0 => RET(NC),
-            0xD8 => RET(C_),
+            0xC0 => RET(NoZero),
+            0xC8 => RET(Zero),
+            0xD0 => RET(NoCarry),
+            0xD8 => RET(Carry),
 
             0xD9 => RETI,
             

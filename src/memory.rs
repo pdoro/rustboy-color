@@ -1,9 +1,10 @@
-use std::ops::Index;
+
+use log::{trace, debug, info};
+use std::ops::{Index, IndexMut};
 use std::fmt;
 use std::ops;
 
-#[derive(Debug)]
-pub struct Address(pub u16);
+type Address = u16;
 type Byte = u8;
 
 pub struct MemorySpace([u8; 256]);
@@ -16,33 +17,34 @@ impl MemorySpace {
     }
 }
 
-const MEMORY_START: Address = Address(0x0000);
-const MEMORY_END: Address   = Address(0xFFFF);
+const MEMORY_START: Address = 0x0000;
+const MEMORY_END: Address   = 0xFFFF;
 
 impl Index<Address> for MemorySpace {
     type Output = Byte;
 
     fn index(&self, address: Address) -> &Self::Output {
-        if address.0 < MEMORY_START.0 || address.0 > MEMORY_END.0 {
-            panic!("Invalid unsafe memory access to {:#X}", address.0);
+        if address < MEMORY_START || address > MEMORY_END {
+            panic!("Invalid unsafe memory access to {:#X}", address);
         } else {
-            &self.0[ address.0 as usize ]
+            trace!("Reading memory address {:#X}", address);
+            &self.0[ address as usize ]
         }
     }
 }
 
-/*
-impl Index<u16> for MemorySpace {
-    type Output = Byte;
 
-    fn index(&self, address: u16) -> &Self::Output {
-        if address < MEMORY_START.0 || address > MEMORY_END.0 {
-            panic!("Invalid unsafe memory access to {:#X}", address);
+impl IndexMut<Address> for MemorySpace {
+
+    fn index_mut(&mut self, address: Address) -> &mut Self::Output {
+        if address < MEMORY_START || address > MEMORY_END {
+            panic!("Invalid unsafe memory write to {:#X}", address);
         } else {
-            &self.0[ address as usize ]
+            trace!("Writing memory address {:#X}", address);
+            &mut self.0[ address as usize ]
         }
     }
-}*/
+}
 
 impl std::fmt::Debug for MemorySpace {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
