@@ -1,5 +1,5 @@
 
-use crate::utils::as_u16;
+use crate::utils::{as_u16, set_bit};
 use crate::cpu::instruction::Operand;
 use std::fmt;
 use std::ops;
@@ -19,48 +19,48 @@ pub struct Registers {
     pub PC: u16,
 }
 
+pub enum Flag {
+    Zero,
+    Subtract,
+    HalfCarry,
+    Carry
+}
+
 #[allow(non_snake_case)]
 impl Registers {
     // Special registers
     pub fn read_AF(&self) -> u16 {
         as_u16(self.A, self.F)
     }
-
     pub fn read_HL(&self) -> u16 {
         as_u16(self.H, self.L)
     }
-
     pub fn read_BC(&self) -> u16 {
         as_u16(self.B, self.C)
     }
-
     pub fn read_DE(&self) -> u16 {
         as_u16(self.D, self.E)
     }
 
     // Write operations
     pub fn write_AF(&mut self, data: u16) {
-        let bytes = data.to_be_bytes();
-        self.A = bytes[0];
-        self.F = bytes[1];
+        self.A = (data >> 8) as u8;
+        self.F = data as u8;
     }
 
     pub fn write_HL(&mut self, data: u16) {
-        let bytes = data.to_be_bytes();
-        self.H = bytes[0];
-        self.L = bytes[1];
+        self.H = (data >> 8) as u8;
+        self.L = data as u8;
     }
 
     pub fn write_BC(&mut self, data: u16) {
-        let bytes = data.to_be_bytes();
-        self.B = bytes[0];
-        self.C = bytes[1];
+        self.B = (data >> 8) as u8;
+        self.C = data as u8;
     }
 
     pub fn write_DE(&mut self, data: u16) {
-        let bytes = data.to_be_bytes();
-        self.D = bytes[0];
-        self.E = bytes[1];
+        self.D = (data >> 8) as u8;
+        self.E = data as u8;
     }
 
 
@@ -76,7 +76,25 @@ impl Registers {
             L: 0,
 
             SP: 0,
-            PC: 0xFFFE,
+            PC: 0x64,
+        }
+    }
+
+    pub fn read_flag(&self, flag: Flag) -> bool {
+        match flag {
+            Flag::Zero => self.F & (1 << 1) != 0,
+            Flag::Subtract => self.F & (1 << 2) != 0,
+            Flag::HalfCarry => self.F & (1 << 3) != 0,
+            Flag::Carry => self.F & (1 << 4) != 0,
+        }
+    }
+
+    pub fn write_flag(&mut self, flag: Flag, status: bool) {
+        match flag {
+            Flag::Zero => self.F = set_bit(self.F, 1, status),
+            Flag::Subtract => self.F = set_bit(self.F, 2, status),
+            Flag::HalfCarry => self.F = set_bit(self.F, 3, status),
+            Flag::Carry => self.F = set_bit(self.F, 4, status),
         }
     }
 }

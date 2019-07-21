@@ -1,21 +1,70 @@
 
 use log::{trace, debug, info};
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Range};
 use std::fmt;
 use std::ops;
 
 type Address = u16;
 type Byte = u8;
 
-pub struct MemorySpace([u8; 256]);
+pub struct MemorySpace([u8; MEMORY_END as usize]);
 
 impl MemorySpace {
     pub fn new() -> MemorySpace {
-        let mut memory = [0; 256];
+        let mut memory = [0; MEMORY_END as usize];
         memory[0..BOOT_ROM.len()].copy_from_slice( &BOOT_ROM );
         MemorySpace(memory)
     }
+
+//    pub fn find_memory_area(&self, address: Address) -> MemoryArea {
+//
+//        if BOOTROM_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if GameRomBank0_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if GameRomBankN_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if TileRam_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if BackgroundMap_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if CartridgeRam_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if WorkingRam_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if EchoRam_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if ObjectAttributeMemory_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if Unmapped_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if IORegisters_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if HighRam_RANGE.contains(&address) { MemoryArea::BootRom }
+//        if InterruptEnabledRegiste_RANGE.contains(&address) { MemoryArea::BootRom }
+//
+//        panic!("Address {:#X} does not belong to memory space, cannot map to area", address)
+//    }
 }
+
+//pub enum MemoryArea {
+//    BootRom,
+//    GameRomBank0,
+//    GameRomBankN,
+//    TileRam,
+//    BackgroundMap,
+//    CartridgeRam,
+//    WorkingRam,
+//    EchoRam,
+//    ObjectAttributeMemory,
+//    Unmapped,
+//    IORegisters,
+//    HighRam,
+//    InterruptEnabledRegister
+//}
+//
+//const BOOTROM_RANGE: Range<Address> = (MEMORY_START..0x00FF);
+//const GameRomBank0_RANGE: Range<Address> = (MEMORY_START..0x3FFF);
+//const GameRomBankN_RANGE: Range<Address> = (0x4000..0x7FFF);
+//const TileRam_RANGE: Range<Address> =       (0x8000..0x97FF);
+//const BackgroundMap_RANGE: Range<Address> = (0x9800..0x9FFF);
+//const CartridgeRam_RANGE: Range<Address> = (0xA000..0xBFFF);
+//const WorkingRam_RANGE: Range<Address> = (0x8000..0x00FF);
+//const EchoRam_RANGE: Range<Address> =     (0x8000..0x00FF);
+//const ObjectAttributeMemory_RANGE: Range<Address> = (0x8000..0x00FF);
+//const Unmapped_RANGE: Range<Address> = (0x8000..0x00FF);
+//const IORegisters_RANGE: Range<Address> = (0x8000..0x00FF);
+//const HighRam_RANGE: Range<Address> = (0x8000..0x00FF);
+//const InterruptEnabledRegiste_RANGE: Range<Address> = (0x8000..0x00FF);
 
 const MEMORY_START: Address = 0x0000;
 const MEMORY_END: Address   = 0xFFFF;

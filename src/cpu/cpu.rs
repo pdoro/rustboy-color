@@ -18,7 +18,8 @@ pub struct CPU {
     register: Registers,
     memory: MemorySpace,
     cycle: u32,
-    halted: bool
+    halted: bool,
+    interrupts_enabled : bool
 }
 
 impl CPU {
@@ -28,7 +29,8 @@ impl CPU {
             register: Registers::new(),
             memory,
             cycle: 0,
-            halted: false
+            halted: false,
+            interrupts_enabled: true
         };
         debug!("CPU initialized. {:#?}", cpu);
         cpu
@@ -81,11 +83,19 @@ impl CPU {
             LDD(op1, op2) => {
                 let data: u8 = self.read(op2);
                 self.write(op1, data);
+
+                let hl = self.register.read_HL();
+                let (hl, overflow) = hl.overflowing_sub(1);
+                self.register.write_HL(hl);
                 // DEC self.register.HL()
             },
             LDI(op1, op2) => {
                 let data: u8 = self.read(op2);
                 self.write(op1, data);
+
+                let hl = self.register.read_HL();
+                let (hl, overflow) = hl.overflowing_add(1);
+                self.register.write_HL(hl);
                 // INC self.register.HL()
             },
             LDH(op1, op2) => {
@@ -100,7 +110,7 @@ impl CPU {
             },
             PUSH(op) => {
                 let data: u8 = self.read(op);
-                self.write( Operand::SP, data );
+                self.write( Memory(Box::new(SP), 0), data );
                 self.register.SP -= 2;
             },
             POP(op) => {
@@ -110,21 +120,36 @@ impl CPU {
             },
             ADD8(op1, op2) => {
                 let n: u8 = self.read(op2);
-                self.register[A] += n;
-                // TODO flags
+                let (a, overflow) = self.register[A].overflowing_add(n);
+                self.register[A] = a;
+
+                if overflow {
+
+                }
             },
             ADD16(op1, op2) => {
-                let n: u8 = self.read(op2);
-                //self.register[ op1 ] += n;
-                // TODO flags
+                let x: u16 = self.read(op1.clone());
+                let y: u16 = self.read(op2);
+
+                let (res, overflow) = x.overflowing_add(y);
+                self.write(op1, res);
+
+                if overflow {
+
+                }
             },
             ADC(op1, op2) => {
 
             },
             SUB(op) => {
-                let n: u8 = self.read(op);
-                self.register[A] -= n;
-                // TODO flags
+                let x: u8 = self.read(op.clone());
+
+                let (res, overflow) = self.register[A].overflowing_sub(x);
+                self.register[A] = res;
+
+                if overflow {
+
+                }
             },
             SBC(op1, op2) => {},
             AND(op) => {
@@ -142,7 +167,9 @@ impl CPU {
                 self.register[A] ^= n;
                 // TODO flags
             },
-            CP(op) => {},
+            CP(op) => {
+
+            },
             INC8(op) => {
                 let n: u8 = self.read(op.clone());
                 let (result, overflow) = n.overflowing_add(1);
@@ -209,7 +236,11 @@ impl CPU {
             JP1(op) => {
                 //self[PC] = self.read(op);
             },
-            JP(op1, op2) => {},
+            JP(op1, op2) => {
+                let address: u16 = self.read(op2);
+                self.register.SP = address;
+                self.cycle += 12;
+            },
             JR1(op) => {},
             JR(op1, op2) => {},
             CALL1(op) => {},
