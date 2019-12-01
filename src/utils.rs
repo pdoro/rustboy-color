@@ -9,6 +9,11 @@ pub fn read_bit(x: u8, nth: u8) -> bool {
     x & (1 << nth) != 0
 }
 
+#[inline(always)]
+pub fn lohi(x: u16) -> (u8, u8) {
+    ((x >> 8) as u8, x as u8)
+}
+
 // TODO review nth position is correct or reverse
 
 #[inline(always)]
