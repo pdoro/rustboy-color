@@ -8,7 +8,7 @@ use crate::memory::MemorySpace;
 use crate::cpu::instruction::Instruction::*;
 use super::instruction::Operand::*;
 use super::register::*;
-use crate::utils::as_u16;
+use crate::utils::{as_u16, lohi};
 use std::borrow::Borrow;
 
 type OpCode = u8;
@@ -26,7 +26,7 @@ impl CPU {
 
     pub fn new(memory: MemorySpace) -> CPU {
         let cpu = CPU {
-            register: Registers::new(),
+            register: Registers::default(),
             memory,
             cycle: 0,
             halted: false,
@@ -109,14 +109,14 @@ impl CPU {
                 // Write addr to HL
             },
             PUSH(op) => {
-                let data: u8 = self.read(op);
-                self.write( Memory(Box::new(SP), 0), data );
-                self.register.SP -= 2;
+                let data: u16 = self.read(op);
+                let (lo, hi) = lohi(u16);
+                self.push(lo);
+                self.push(hi);
             },
             POP(op) => {
-                let data = self.memory[ self.register.SP ];
-                self.write(op, data);
-                self.register.SP += 2;
+                let data = as_u16(self.pop(), self.pop() );
+                self.write(op, data)
             },
             ADD8(op1, op2) => {
                 let n: u8 = self.read(op2);
@@ -234,18 +234,50 @@ impl CPU {
             },
             RRA => {},
             JP1(op) => {
-                //self[PC] = self.read(op);
-            },
-            JP(op1, op2) => {
-                let address: u16 = self.read(op2);
+                let address: u16 = self.read(op);
                 self.register.SP = address;
                 self.cycle += 12;
             },
-            JR1(op) => {},
-            JR(op1, op2) => {},
-            CALL1(op) => {},
-            CALL(op1, op2) => {},
-            RST(op) => {},
+            JP(op1, op2) => {
+                if self.jump_allowed(op1) {
+                    let address: u16 = self.read(op2);
+                    self.register.SP = address;
+                    self.cycle += 12;
+                }
+            },
+            JR1(op) => {
+                let inc: u8 = self.read(op);
+                self.register.SP = self.register.SP + inc as u16;
+                self.cycle += 12;
+            },
+            JR(op1, op2) => {
+                if self.jump_allowed(op1) {
+                    let inc: u8 = self.read(op2);
+                    self.register.SP = self.register.SP + inc as u16;
+                    self.cycle += 12;
+                }
+            },
+            CALL1(op) => {
+                // self.push( self.register.SP ); // TODO address are 16 bit
+                let address: u16 = self.read(op);
+                self.register.SP = address;
+                self.cycle += 12;
+            },
+            CALL(op1, op2) => {
+                if self.jump_allowed(op1) {
+                    // Push current Stack Pointer
+                    let (lo, hi) = lohi(self.register.SP);
+                    self.push( lo );
+                    self.push( hi );
+                    // Jump to address by replacing Stack Pointer with value
+                    let address: u16 = self.read(op2);
+                    self.register.SP = address;
+                    self.cycle += 12;
+                }
+            },
+            RST(op) => {
+
+            },
             RET_ => {},
             RET(op) => {},
             RETI => {},
@@ -260,6 +292,29 @@ impl CPU {
             SET(op1, op2) => {},
             RES(op1, op2) => {},
         }
+    }
+
+    pub fn jump_allowed(&self, operand: Operand) -> bool {
+        match operand {
+            Zero => self.register.read_flag(Flag::Zero),
+            NoZero => ! self.register.read_flag(Flag::Zero),
+            Carry => self.register.read_flag(Flag::Carry),
+            NoCarry => ! self.register.read_flag(Flag::Carry),
+            _ => panic!("Invalid operand {:?} for JP instructions", operand)
+        }
+    }
+
+    pub fn push(&mut self, data: u8) {
+        self.write( Memory(Box::new(SP), 0), data );
+        self.cycle += 8;
+        self.register.SP -= 1;
+    }
+
+    pub fn pop(&mut self) -> u8 {
+        let data = self.read(Memory(Box::new(SP), 0), data );
+        self.cycle += 8;
+        self.register.SP += 1;
+        data
     }
 }
 
