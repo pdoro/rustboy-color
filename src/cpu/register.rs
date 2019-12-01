@@ -26,8 +26,27 @@ pub enum Flag {
     Carry
 }
 
+impl Default for Registers {
+    fn default() -> Self {
+        Registers {
+            A: 0,
+            B: 0,
+            C: 0,
+            D: 0,
+            E: 0,
+            F: 0,
+            H: 0,
+            L: 0,
+
+            SP: 0,
+            PC: 0x64,
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 impl Registers {
+
     // Special registers
     pub fn read_AF(&self) -> u16 {
         as_u16(self.A, self.F)
@@ -61,23 +80,6 @@ impl Registers {
     pub fn write_DE(&mut self, data: u16) {
         self.D = (data >> 8) as u8;
         self.E = data as u8;
-    }
-
-
-    pub fn new() -> Registers {
-        Registers {
-            A: 0,
-            B: 0,
-            C: 0,
-            D: 0,
-            E: 0,
-            F: 0,
-            H: 0,
-            L: 0,
-
-            SP: 0,
-            PC: 0x64,
-        }
     }
 
     pub fn read_flag(&self, flag: Flag) -> bool {

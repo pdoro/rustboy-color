@@ -447,14 +447,14 @@ impl From<u8> for Instruction {
             // --------------- Restarts ---------------
 
             // TODO!
-            0xC7 => RST(Memory(Box::new(Word), 0x0000)),
-            0xCF => RST(Memory(Box::new(Word), 0x0000)),
-            0xD7 => RST(Memory(Box::new(Word), 0x0000)),
-            0xDF => RST(Memory(Box::new(Word), 0x0000)),
-            0xE7 => RST(Memory(Box::new(Word), 0x0000)),
-            0xEF => RST(Memory(Box::new(Word), 0x0000)),
-            0xF7 => RST(Memory(Box::new(Word), 0x0000)),
-            0xFF => RST(Memory(Box::new(Word), 0x0000)),
+            0xC7 => RST(Memory(Box::new(Word), 0)),
+            0xCF => RST(Memory(Box::new(Word), 0)),
+            0xD7 => RST(Memory(Box::new(Word), 0)),
+            0xDF => RST(Memory(Box::new(Word), 0)),
+            0xE7 => RST(Memory(Box::new(Word), 0)),
+            0xEF => RST(Memory(Box::new(Word), 0)),
+            0xF7 => RST(Memory(Box::new(Word), 0)),
+            0xFF => RST(Memory(Box::new(Word), 0)),
 
             // --------------- Returns ---------------
 
