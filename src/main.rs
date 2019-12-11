@@ -5,6 +5,7 @@ extern crate clap;
 mod utils;
 mod memory;
 mod cpu;
+mod tests;
 
 use cpu::cpu::CPU;
 use memory::MemorySpace;
@@ -23,7 +24,7 @@ fn main() {
     setup_logger(log_level);
 
     info!("Starting rustboy emulator");
-    let mut memory = MemorySpace::new();
+    let mut memory = MemorySpace::default();
     let mut cpu = CPU::new(memory);
     info!("CPU execution started");
 

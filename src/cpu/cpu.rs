@@ -15,11 +15,12 @@ type OpCode = u8;
 
 #[derive(Debug)]
 pub struct CPU {
-    register: Registers,
+    pub register: Registers,
     memory: MemorySpace,
-    cycle: u32,
-    halted: bool,
-    interrupts_enabled : bool
+    pub cycle: u32,
+    pub halted: bool,
+    pub stopped: bool,
+    pub interrupts_enabled : bool
 }
 
 impl CPU {
@@ -30,25 +31,30 @@ impl CPU {
             memory,
             cycle: 0,
             halted: false,
+            stopped: false,
             interrupts_enabled: true
         };
         debug!("CPU initialized. {:#?}", cpu);
         cpu
     }
 
-    pub fn run(mut self) {
+    pub fn run(&mut self) {
         debug!("Fetch-Decode-Execute loop starting");
         loop {
             let opcode = self.fetch();
             let instruction = self.decode( opcode );
             self.execute( instruction );
+
+            if self.halted {
+                break
+            }
         }
     }
 
     fn fetch(&mut self) -> OpCode {
-        trace!("Fetching next byte. SP: {:#?}", self.register.SP);
-        let data = self.memory[ self.register.SP ];
-        self.register.SP += 1;
+        trace!("Fetching next byte. PC: {:#?}", self.register.PC);
+        let data = self.memory[ self.register.PC ];
+        self.register.PC += 1;
         self.cycle += 4;
 
         data
@@ -57,7 +63,7 @@ impl CPU {
     fn decode(&mut self, opcode: OpCode) -> Instruction {
         trace!("Decoding opcode {:#X}", opcode);
         match opcode {
-            // Special instructions
+            // Special instructions always start with 0XCB
             0xCB => {
                 let next_byte = self.fetch();
                 let opcode = as_u16(opcode,next_byte);
@@ -81,22 +87,12 @@ impl CPU {
                 self.write(op1, data);
             },
             LDD(op1, op2) => {
-                let data: u8 = self.read(op2);
-                self.write(op1, data);
-
-                let hl = self.register.read_HL();
-                let (hl, overflow) = hl.overflowing_sub(1);
-                self.register.write_HL(hl);
-                // DEC self.register.HL()
+                self.execute(LD8(op1, op2));
+                self.execute(DEC16(HL));
             },
             LDI(op1, op2) => {
-                let data: u8 = self.read(op2);
-                self.write(op1, data);
-
-                let hl = self.register.read_HL();
-                let (hl, overflow) = hl.overflowing_add(1);
-                self.register.write_HL(hl);
-                // INC self.register.HL()
+                self.execute(LD8(op1, op2));
+                self.execute(INC16(HL));
             },
             LDH(op1, op2) => {
                 let data: u8 = self.read(op2);
@@ -110,7 +106,7 @@ impl CPU {
             },
             PUSH(op) => {
                 let data: u16 = self.read(op);
-                let (lo, hi) = lohi(u16);
+                let (lo, hi) = lohi(data);
                 self.push(lo);
                 self.push(hi);
             },
@@ -120,11 +116,15 @@ impl CPU {
             },
             ADD8(op1, op2) => {
                 let n: u8 = self.read(op2);
-                let (a, overflow) = self.register[A].overflowing_add(n);
-                self.register[A] = a;
+                let (result, overflow) = self.register[A].overflowing_add(n);
+                self.register[A] = result;
+
+                if result == 0 {
+                    self.register.set_flag(Flags::Zero);
+                }
 
                 if overflow {
-
+                    self.register.set_flag(Flags::Carry);
                 }
             },
             ADD16(op1, op2) => {
@@ -155,20 +155,33 @@ impl CPU {
             AND(op) => {
                 let n: u8 = self.read(op);
                 self.register[A] &= n;
-                // TODO flags
+
+                if self.register[A] == 0 {
+                    self.register.set_flag(Flags::Zero );
+                }
+                self.register.set_flag(Flags::HalfCarry );
             },
             OR(op) => {
                 let n: u8 = self.read(op);
                 self.register[A] |= n;
-                // TODO flags
+
+                if self.register[A] == 0 {
+                    self.register.set_flag( Flags::Zero );
+                }
             },
             XOR(op) => {
                 let n: u8 = self.read(op);
                 self.register[A] ^= n;
-                // TODO flags
+
+                if self.register[A] == 0 {
+                    self.register.set_flag( Flags::Zero );
+                }
             },
             CP(op) => {
+                let n: u8 = self.read(op);
+                let result: u8 = self.register.A - n;
 
+                // TODO WRITE FLAGS
             },
             INC8(op) => {
                 let n: u8 = self.read(op.clone());
@@ -209,23 +222,45 @@ impl CPU {
             SWAP(op) => {
                 let n: u8 = self.read(op.clone());
                 self.write(op, n.swap_bytes());
+
+                if n == 0 {
+                    self.register.set_flag( Flags::Zero )
+                }
             },
             DAA => {},
             CPL => {
-                //self.register.A = self.register.A.reverse_bits();
-                // TODO
+                self.register.A = self.register.A.reverse_bits();
+                // TODO flags
             },
             CCF => {
-
+                // TODO flags
             },
-            SCF => {},
+            SCF => {
+                // TODO flags
+            },
             NOP => (),
-            HALT => {},
-            DI => {},
-            EI => {},
+            HALT => {
+                self.halted = true;
+            },
+            STOP => {
+                self.stopped = true;
+            },
+            DI => {
+                self.interrupts_enabled = false;
+            },
+            EI => {
+                self.interrupts_enabled = true;
+            },
             RLCA => {
+                let old_bit = self.register.A & 0b10000000;
                 self.register.A = self.register.A.rotate_left(1);
-                // TDDO Old bit 7 to Carry flag
+
+                if self.register.A == 0 {
+                    self.register.set_flag( Flags::Zero )
+                }
+                if old_bit != 0 {
+                    self.register.set_flag( Flags::Carry )
+                }
             },
             RLA => {},
             RRCA => {
@@ -235,35 +270,40 @@ impl CPU {
             RRA => {},
             JP1(op) => {
                 let address: u16 = self.read(op);
-                self.register.SP = address;
+                self.register.PC = address;
                 self.cycle += 12;
             },
             JP(op1, op2) => {
                 if self.jump_allowed(op1) {
                     let address: u16 = self.read(op2);
-                    self.register.SP = address;
+                    self.register.PC = address;
                     self.cycle += 12;
                 }
             },
             JR1(op) => {
-                let inc: u8 = self.read(op);
-                self.register.SP = self.register.SP + inc as u16;
+                let offset: u8 = self.read(op);
+                self.register.PC += offset as u16;
                 self.cycle += 12;
             },
-            JR(op1, op2) => {
-                if self.jump_allowed(op1) {
-                    let inc: u8 = self.read(op2);
-                    self.register.SP = self.register.SP + inc as u16;
+            JR(cc, nn) => {
+                if self.jump_allowed(cc) {
+                    let offset: u8 = self.read(nn);
+                    self.register.PC += offset as u16;
                     self.cycle += 12;
                 }
             },
             CALL1(op) => {
-                // self.push( self.register.SP ); // TODO address are 16 bit
+
+                let (lo, hi) = lohi(self.register.PC + 1);
+                self.push( lo );
+                self.push( hi );
+
                 let address: u16 = self.read(op);
-                self.register.SP = address;
+                self.register.PC = address;
                 self.cycle += 12;
             },
             CALL(op1, op2) => {
+
                 if self.jump_allowed(op1) {
                     // Push current Stack Pointer
                     let (lo, hi) = lohi(self.register.SP);
@@ -271,7 +311,7 @@ impl CPU {
                     self.push( hi );
                     // Jump to address by replacing Stack Pointer with value
                     let address: u16 = self.read(op2);
-                    self.register.SP = address;
+                    self.register.PC = address;
                     self.cycle += 12;
                 }
             },
@@ -288,30 +328,50 @@ impl CPU {
             SLA(op) => {},
             SRA(op) => {},
             SRL(op) => {},
-            BIT(op1, op2) => {},
-            SET(op1, op2) => {},
-            RES(op1, op2) => {},
+            BIT(op1, op2) => {
+                let nth_bit: u8 = self.read(op1);
+                let value: u8 = self.read(op2.clone());
+                let is_zero = ((value >> nth_bit) & 1) == 0 ;
+
+                // https://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit
+
+                if is_zero { self.register.set_flag( Flags::Zero); }
+                self.register.set_flag( Flags::HalfCarry);
+                self.register.reset_flag( Flags::Subtract);
+            },
+            SET(op1, op2) => {
+                let nth_bit: u8 = self.read(op1);
+                let value: u8 = self.read(op2.clone());
+                let result: u8 = value | 1 << nth_bit;
+                self.write(op2, value);
+            },
+            RES(op1, op2) => {
+                let nth_bit: u8 = self.read(op1);
+                let value: u8 = self.read(op2.clone());
+                let result: u8 = value & !(1 << flag as u8);
+                self.write(op2, value);
+            },
         }
     }
 
-    pub fn jump_allowed(&self, operand: Operand) -> bool {
+    fn jump_allowed(&self, operand: Operand) -> bool {
         match operand {
-            Zero => self.register.read_flag(Flag::Zero),
-            NoZero => ! self.register.read_flag(Flag::Zero),
-            Carry => self.register.read_flag(Flag::Carry),
-            NoCarry => ! self.register.read_flag(Flag::Carry),
+            Zero => self.register.read_flag(Flags::Zero),
+            NoZero => ! self.register.read_flag(Flags::Zero),
+            Carry => self.register.read_flag(Flags::Carry),
+            NoCarry => ! self.register.read_flag(Flags::Carry),
             _ => panic!("Invalid operand {:?} for JP instructions", operand)
         }
     }
 
-    pub fn push(&mut self, data: u8) {
-        self.write( Memory(Box::new(SP), 0), data );
+    fn push(&mut self, data: u8) {
+        self.write( Memory(Box::new(SP), 0x0), data );
         self.cycle += 8;
         self.register.SP -= 1;
     }
 
-    pub fn pop(&mut self) -> u8 {
-        let data = self.read(Memory(Box::new(SP), 0), data );
+    fn pop(&mut self) -> u8 {
+        let data = self.read(Memory(Box::new(SP), 0x0) );
         self.cycle += 8;
         self.register.SP += 1;
         data
@@ -334,9 +394,8 @@ impl ReadWrite<u8> for CPU {
             },
             Memory(addr, offset) => {
                 self.cycle += 4;
-                let tmp: u16 = self.read(*addr);
-                let address = tmp + offset;
-                self.memory[address]
+                let address: u16 = self.read(*addr);
+                self.memory[ address + offset ]
             },
             Word => {
                 self.cycle += 4;
@@ -365,9 +424,8 @@ impl ReadWrite<u8> for CPU {
             PC => {},
             Memory(addr, offset) => {
                 self.cycle += 4;
-                let tmp: u16 = self.read(*addr);
-                let addr = tmp + offset;
-                self.memory[addr] = data;
+                let address: u16 = self.read(*addr);
+                self.memory[ address + offset ] = data;
             },
             _ => panic!("Invalid operand {:?} to write word", operand)
         }
@@ -389,12 +447,7 @@ impl ReadWrite<u16> for CPU {
             SP => self.register.SP,
             PC => self.register.PC,
             Word => as_u16(0, self.read(operand)),
-            DWord => {
-                as_u16(
-                    self.read(Word),
-                    self.read(Word)
-                )
-            },
+            DWord => as_u16(self.read(Word),self.read(Word)),
             _ => panic!("Invalid operand {:?} to read double word", operand)
         };
 

@@ -1,5 +1,5 @@
 
-use crate::utils::{as_u16, set_bit};
+use crate::utils::{as_u16};
 use crate::cpu::instruction::Operand;
 use std::fmt;
 use std::ops;
@@ -19,11 +19,11 @@ pub struct Registers {
     pub PC: u16,
 }
 
-pub enum Flag {
-    Zero,
-    Subtract,
-    HalfCarry,
-    Carry
+pub enum Flags {
+   Zero = 0,
+   Subtract = 1,
+   HalfCarry = 2,
+   Carry = 3,
 }
 
 impl Default for Registers {
@@ -39,7 +39,7 @@ impl Default for Registers {
             L: 0,
 
             SP: 0,
-            PC: 0x64,
+            PC: 0,
         }
     }
 }
@@ -82,22 +82,18 @@ impl Registers {
         self.E = data as u8;
     }
 
-    pub fn read_flag(&self, flag: Flag) -> bool {
-        match flag {
-            Flag::Zero => self.F & (1 << 1) != 0,
-            Flag::Subtract => self.F & (1 << 2) != 0,
-            Flag::HalfCarry => self.F & (1 << 3) != 0,
-            Flag::Carry => self.F & (1 << 4) != 0,
-        }
+    // FLAG OPERATIONS
+
+    pub fn read_flag(&self, flag: Flags) -> bool {
+        self.F & (1 << flag as u8) != 0
     }
 
-    pub fn write_flag(&mut self, flag: Flag, status: bool) {
-        match flag {
-            Flag::Zero => self.F = set_bit(self.F, 1, status),
-            Flag::Subtract => self.F = set_bit(self.F, 2, status),
-            Flag::HalfCarry => self.F = set_bit(self.F, 3, status),
-            Flag::Carry => self.F = set_bit(self.F, 4, status),
-        }
+    pub fn set_flag(&mut self, flag: Flags) {
+        self.F |= (1 << flag as u8);
+    }
+
+    pub fn reset_flag(&mut self, flag: Flags) {
+        self.F &= !(1 << flag as u8);
     }
 }
 
@@ -140,5 +136,87 @@ impl std::fmt::Debug for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Register(A: {:#X}, B: {:#X}, C: {:#X}, D: {:#X}, E: {:#X}, F: {:#X}, H: {:#X}, L: {:#X}, SP: {:#X}, PC: {:#X})",
                self.A, self.B, self.C, self.D, self.E, self.F, self.H, self.L, self.SP, self.PC)
+    }
+}
+
+#[cfg(test)]
+mod register_tests {
+    use super::*;
+
+    #[test]
+    fn should_set_flags() {
+        let mut register = Registers::default();
+
+        register.set_flag(Flags::Zero);
+        assert_eq!(register.F, 0b00000001);
+        register.set_flag(Flags::Subtract);
+        assert_eq!(register.F, 0b00000011);
+        register.set_flag(Flags::HalfCarry);
+        assert_eq!(register.F, 0b00000111);
+        register.set_flag(Flags::Carry);
+        assert_eq!(register.F, 0b00001111);
+
+        register.set_flag(Flags::Carry);
+        assert_eq!(register.F, 0b00001111);
+    }
+
+    #[test]
+    fn should_reset_flags() {
+        let mut register = Registers::default();
+        register.F = 0b00001111;
+
+        register.reset_flag(Flags::Zero);
+        assert_eq!(register.F, 0b00001110);
+        register.reset_flag(Flags::Subtract);
+        assert_eq!(register.F, 0b00001100);
+        register.reset_flag(Flags::HalfCarry);
+        assert_eq!(register.F, 0b00001000);
+        register.reset_flag(Flags::Carry);
+        assert_eq!(register.F, 0b00000000);
+
+        register.reset_flag(Flags::Carry);
+        assert_eq!(register.F, 0b00000000);
+    }
+
+    #[test]
+    fn should_read_flags() {
+        let mut register = Registers::default();
+
+        register.F = 0b00001111;
+        assert_eq!(true, register.read_flag(Flags::Zero));
+        assert_eq!  (true, register.read_flag(Flags::Subtract));
+        assert_eq!(true, register.read_flag(Flags::HalfCarry));
+        assert_eq!(true, register.read_flag(Flags::Carry));
+
+        register.F = 0b00000000;
+        assert_eq!(false, register.read_flag(Flags::Zero));
+        assert_eq!(false, register.read_flag(Flags::Subtract));
+        assert_eq!(false, register.read_flag(Flags::HalfCarry));
+        assert_eq!(false, register.read_flag(Flags::Carry));
+    }
+
+    #[test]
+    fn should_read_write_double_registers() {
+        let mut register = Registers::default();
+
+        register.write_HL(0b1010101011010011);
+        assert_eq!(register.H, 0b10101010);
+        assert_eq!(register.L, 0b11010011);
+        assert_eq!(register.read_HL(), 0b1010101011010011);
+
+        register.write_AF(0b1010101011010011);
+        assert_eq!(register.A, 0b10101010);
+        assert_eq!(register.F, 0b11010011);
+        assert_eq!(register.read_AF(), 0b1010101011010011);
+
+        register.write_BC(0b1010101011010011);
+        assert_eq!(register.B, 0b10101010);
+        assert_eq!(register.C, 0b11010011);
+        assert_eq!(register.read_BC(), 0b1010101011010011);
+
+        register.write_DE(0b1010101011010011);
+        assert_eq!(register.D, 0b10101010);
+        assert_eq!(register.E, 0b11010011);
+        assert_eq!(register.read_DE(), 0b1010101011010011);
     }
 }

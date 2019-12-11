@@ -7,12 +7,12 @@ use std::ops;
 type Address = u16;
 type Byte = u8;
 
-pub struct MemorySpace([u8; MEMORY_END as usize]);
+pub struct MemorySpace([u8; 256]);
 
 impl MemorySpace {
-    pub fn new() -> MemorySpace {
-        let mut memory = [0; MEMORY_END as usize];
-        memory[0..BOOT_ROM.len()].copy_from_slice( &BOOT_ROM );
+    pub fn new(data : &[u8]) -> MemorySpace {
+        let mut memory = [0; 256];
+        memory[0..data.len()].copy_from_slice( data );
         MemorySpace(memory)
     }
 
@@ -36,21 +36,22 @@ impl MemorySpace {
 //    }
 }
 
-//pub enum MemoryArea {
-//    BootRom,
-//    GameRomBank0,
-//    GameRomBankN,
-//    TileRam,
-//    BackgroundMap,
-//    CartridgeRam,
-//    WorkingRam,
-//    EchoRam,
-//    ObjectAttributeMemory,
-//    Unmapped,
-//    IORegisters,
-//    HighRam,
-//    InterruptEnabledRegister
-//}
+// http://gameboy.mongenel.com/dmg/asmmemmap.html
+pub enum MemoryArea {
+    BootRom,
+    GameRomBank0,
+    GameRomBankN,
+    TileRam,
+    BackgroundMap,
+    CartridgeRam,
+    WorkingRam,
+    EchoRam,
+    ObjectAttributeMemory,
+    Unmapped,
+    IORegisters,
+    HighRam,
+    InterruptEnabledRegister
+}
 //
 //const BOOTROM_RANGE: Range<Address> = (MEMORY_START..0x00FF);
 //const GameRomBank0_RANGE: Range<Address> = (MEMORY_START..0x3FFF);
@@ -68,6 +69,12 @@ impl MemorySpace {
 
 const MEMORY_START: Address = 0x0000;
 const MEMORY_END: Address   = 0xFFFF;
+
+impl Default for MemorySpace {
+    fn default() -> Self {
+        Self::new(&BOOT_ROM)
+    }
+}
 
 impl Index<Address> for MemorySpace {
     type Output = Byte;
@@ -101,6 +108,7 @@ impl std::fmt::Debug for MemorySpace {
     }
 }
 
+// https://realboyemulator.wordpress.com/2013/01/03/a-look-at-the-game-boy-bootstrap-let-the-fun-begin/
 const BOOT_ROM: [Byte; 256] = [
     0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
     0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,
