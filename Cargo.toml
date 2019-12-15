@@ -8,4 +8,6 @@ edition = "2018"
 log = "0.4"
 fern = { version = "0.5", features = ["colored"] }
 chrono = "0.4"
-clap = {version = "~2.32.0", features = ["yaml"]}
+#clap = {version = "~2.32.0", features = ["yaml"]}
+
+#amethyst = "0.13.2"

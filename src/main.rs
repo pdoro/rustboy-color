@@ -1,6 +1,6 @@
 extern crate chrono;
-#[macro_use]
-extern crate clap;
+//#[macro_use]
+//extern crate clap;
 
 mod utils;
 mod memory;
@@ -11,15 +11,15 @@ use cpu::cpu::CPU;
 use memory::MemorySpace;
 use log::{info, debug, error};
 use std::panic;
-use clap::App;
+//use clap::App;
 use std::str::FromStr;
 
 fn main() {
 
-    let yaml = load_yaml!("../cli.yaml");
-    let cfg = App::from_yaml(yaml).get_matches();
+    //let yaml = load_yaml!("../cli.yaml");
+    //let cfg = App::from_yaml(yaml).get_matches();
 
-    let log_level = cfg.value_of("verbose").unwrap();
+    let log_level = "trace";//cfg.value_of("verbose").unwrap();
 
     setup_logger(log_level);
 

@@ -1,8 +1,7 @@
 
 use crate::utils::{as_u16};
 use crate::cpu::instruction::Operand;
-use std::fmt;
-use std::ops;
+use std::{fmt, ops, u8, u16};
 
 #[allow(non_snake_case)]
 pub struct Registers {
@@ -20,10 +19,10 @@ pub struct Registers {
 }
 
 pub enum Flags {
-   Zero = 0,
-   Subtract = 1,
-   HalfCarry = 2,
-   Carry = 3,
+   Zero = 7,
+   Subtract = 6,
+   HalfCarry = 5,
+   Carry = 4,
 }
 
 impl Default for Registers {
@@ -97,45 +96,51 @@ impl Registers {
     }
 }
 
-impl ops::IndexMut<Operand> for Registers {
-
-    fn index_mut(&mut self, register: Operand) -> &mut u8 {
-        match register {
-            Operand::A => &mut self.A,
-            Operand::B => &mut self.B,
-            Operand::C => &mut self.C,
-            Operand::D => &mut self.D,
-            Operand::E => &mut self.E,
-            Operand::F => &mut self.F,
-            Operand::H => &mut self.H,
-            Operand::L => &mut self.L,
-            _ => panic!("Invalid register {:?}", register),
-        }
-    }
-}
-
-impl ops::Index<Operand> for Registers {
-    type Output = u8;
-
-    fn index(& self, register: Operand) -> & Self::Output {
-        match register {
-            Operand::A => & self.A,
-            Operand::B => & self.B,
-            Operand::C => & self.C,
-            Operand::D => & self.D,
-            Operand::E => & self.E,
-            Operand::F => & self.F,
-            Operand::H => & self.H,
-            Operand::L => & self.L,
-            _ => panic!("Invalid register {:?}", register),
-        }
-    }
-}
-
 impl std::fmt::Debug for Registers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Register(A: {:#X}, B: {:#X}, C: {:#X}, D: {:#X}, E: {:#X}, F: {:#X}, H: {:#X}, L: {:#X}, SP: {:#X}, PC: {:#X})",
                self.A, self.B, self.C, self.D, self.E, self.F, self.H, self.L, self.SP, self.PC)
+    }
+}
+
+pub trait MathOps<T> {
+    fn carrying_add(&mut self, x: T, y: T) -> T;
+    fn borrowing_sub(&mut self, x: T, y: T) -> T;
+}
+
+impl MathOps<u8> for Registers {
+    // https://robdor.com/2016/08/10/gameboy-emulator-half-carry-flag/
+    fn carrying_add(&mut self, x: u8, y: u8) -> u8 {
+        let (sum, carry) = x.overflowing_add(y);
+        let half_carry = (((x & 0xf) + (y & 0xf)) & 0x10) == 0x10;
+
+        if carry { self.set_flag(Flags::Carry); }
+        if half_carry { self.set_flag(Flags::HalfCarry); }
+        if sum == 0 { self.set_flag(Flags::Zero); }
+
+        sum
+    }
+
+    fn borrowing_sub(&mut self, x: u8, y: u8) -> u8 {
+        unimplemented!()
+    }
+}
+
+impl MathOps<u16> for Registers {
+    // https://robdor.com/2016/08/10/gameboy-emulator-half-carry-flag/
+    fn carrying_add(&mut self, x: u16, y: u16) -> u16 {
+        let (sum, carry) = x.overflowing_add(y);
+        let half_carry = (((x & 0xfff) + (y & 0xfff)) & 0x1000) == 0x1000;
+
+        if carry { self.set_flag(Flags::Carry); }
+        if half_carry { self.set_flag(Flags::HalfCarry); }
+        self.set_flag(Flags::Subtract);
+
+        sum
+    }
+
+    fn borrowing_sub(&mut self, x: u16, y: u16) -> u16 {
+        unimplemented!()
     }
 }
 
@@ -148,29 +153,29 @@ mod register_tests {
         let mut register = Registers::default();
 
         register.set_flag(Flags::Zero);
-        assert_eq!(register.F, 0b00000001);
+        assert_eq!(register.F, 0b10000000);
         register.set_flag(Flags::Subtract);
-        assert_eq!(register.F, 0b00000011);
+        assert_eq!(register.F, 0b11000000);
         register.set_flag(Flags::HalfCarry);
-        assert_eq!(register.F, 0b00000111);
+        assert_eq!(register.F, 0b11100000);
         register.set_flag(Flags::Carry);
-        assert_eq!(register.F, 0b00001111);
+        assert_eq!(register.F, 0b11110000);
 
         register.set_flag(Flags::Carry);
-        assert_eq!(register.F, 0b00001111);
+        assert_eq!(register.F, 0b11110000);
     }
 
     #[test]
     fn should_reset_flags() {
         let mut register = Registers::default();
-        register.F = 0b00001111;
+        register.F = 0b11110000;
 
         register.reset_flag(Flags::Zero);
-        assert_eq!(register.F, 0b00001110);
+        assert_eq!(register.F, 0b01110000);
         register.reset_flag(Flags::Subtract);
-        assert_eq!(register.F, 0b00001100);
+        assert_eq!(register.F, 0b00110000);
         register.reset_flag(Flags::HalfCarry);
-        assert_eq!(register.F, 0b00001000);
+        assert_eq!(register.F, 0b00010000);
         register.reset_flag(Flags::Carry);
         assert_eq!(register.F, 0b00000000);
 
@@ -182,9 +187,9 @@ mod register_tests {
     fn should_read_flags() {
         let mut register = Registers::default();
 
-        register.F = 0b00001111;
+        register.F = 0b11110000;
         assert_eq!(true, register.read_flag(Flags::Zero));
-        assert_eq!  (true, register.read_flag(Flags::Subtract));
+        assert_eq! (true, register.read_flag(Flags::Subtract));
         assert_eq!(true, register.read_flag(Flags::HalfCarry));
         assert_eq!(true, register.read_flag(Flags::Carry));
 
@@ -196,27 +201,92 @@ mod register_tests {
     }
 
     #[test]
-    fn should_read_write_double_registers() {
+    fn should_read_double_registers() {
+        let mut register = Registers::default();
+
+        register.H = 0b10101010;
+        register.L = 0b11010011;
+        assert_eq!(register.read_HL(), 0b1010101011010011);
+
+        register.A = 0b10101010;
+        register.F = 0b11010011;
+        assert_eq!(register.read_AF(), 0b1010101011010011);
+
+        register.B = 0b10101010;
+        register.C = 0b11010011;
+        assert_eq!(register.read_BC(), 0b1010101011010011);
+
+        register.D = 0b10101010;
+        register.E = 0b11010011;
+        assert_eq!(register.read_DE(), 0b1010101011010011);
+    }
+
+    #[test]
+    fn should_write_double_registers() {
         let mut register = Registers::default();
 
         register.write_HL(0b1010101011010011);
         assert_eq!(register.H, 0b10101010);
         assert_eq!(register.L, 0b11010011);
-        assert_eq!(register.read_HL(), 0b1010101011010011);
 
         register.write_AF(0b1010101011010011);
         assert_eq!(register.A, 0b10101010);
         assert_eq!(register.F, 0b11010011);
-        assert_eq!(register.read_AF(), 0b1010101011010011);
 
         register.write_BC(0b1010101011010011);
         assert_eq!(register.B, 0b10101010);
         assert_eq!(register.C, 0b11010011);
-        assert_eq!(register.read_BC(), 0b1010101011010011);
 
         register.write_DE(0b1010101011010011);
         assert_eq!(register.D, 0b10101010);
         assert_eq!(register.E, 0b11010011);
-        assert_eq!(register.read_DE(), 0b1010101011010011);
+    }
+
+    #[test]
+    fn should_increment_with_carry_and_halfcarry_for_u8() {
+
+        let mut register = Registers::default();
+
+        let x: u8 = 0b00001111;
+        let y: u8 = 0b00000001;
+
+        let sum = register.carrying_add(x,y);
+
+        assert_eq!(sum, 0b00010000);
+        assert_eq!(register.read_flag(Flags::Carry), false);
+        assert_eq!(register.read_flag(Flags::HalfCarry), true);
+
+        let x: u8 = 0b11111111;
+        let y: u8 = 0b00000001;
+
+        let sum = register.carrying_add(x,y);
+
+        assert_eq!(sum, 0b00000000);
+        assert_eq!(register.read_flag(Flags::Carry), true);
+        assert_eq!(register.read_flag(Flags::HalfCarry), true);
+    }
+
+    #[test]
+    fn should_increment_with_carry_and_halfcarry_for_u16() {
+
+        let mut register = Registers::default();
+
+        let x: u16 = 0b0000111111111111;
+        let y: u16 = 0b0000000000000001;
+
+        let sum = register.carrying_add(x,y);
+
+        assert_eq!(sum, 0b0001000000000000);
+        assert_eq!(register.read_flag(Flags::Carry), false);
+        assert_eq!(register.read_flag(Flags::HalfCarry), true);
+
+        let x: u16 = 0b1111111111111111;
+        let y: u16 = 0b0000000000000001;
+
+        let sum = register.carrying_add(x,y);
+
+        assert_eq!(sum, 0b0000000000000000);
+        assert_eq!(register.read_flag(Flags::Carry), true);
+        assert_eq!(register.read_flag(Flags::HalfCarry), true);
     }
 }

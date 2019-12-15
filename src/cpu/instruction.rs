@@ -1,7 +1,7 @@
 
 use std::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Operand {
     // Cpu registers
     A, B, C, D, E, F, H, L,
@@ -16,6 +16,8 @@ pub enum Operand {
     Word,
     DWord,
     Memory(Box<Operand>, u16),
+
+    FixedValue(u16)
 }
 
 impl fmt::Debug for Operand {
@@ -44,7 +46,7 @@ impl fmt::Debug for Operand {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Instruction {
     LD8(Operand, Operand),
     LD16(Operand, Operand),
@@ -202,7 +204,7 @@ impl From<u8> for Instruction {
             0xEA => LD8( Memory( Box::new(DWord), 0 ), A),
 
             // LD A,(C)
-            0xF2 => LD8( A,Memory( Box::new(C), 0xFF00)),
+            0xF2 => LD8( A, Memory( Box::new(C), 0xFF00)),
             // LD (C),A
             0xE2 => LD8( Memory(Box::new(C), 0xFF00),A),
 
@@ -262,7 +264,6 @@ impl From<u8> for Instruction {
             0x84 => ADD8(A, H),
             0x85 => ADD8(A, L),
             0x86 => ADD8(A, Memory(Box::new(HL), 0)),
-            0x87 => ADD8(A, Word),
             0x87 => ADD8(A, A),
 
             // ADC A,n
@@ -274,7 +275,7 @@ impl From<u8> for Instruction {
             0x8C => ADC(A,H),
             0x8D => ADC(A,L),
             0x8E => ADC(A,Memory(Box::new(HL), 0)),
-            0xCE => ADC(A, Word),
+            0xC6 => ADC(A, Word),
 
             // SUB n
             0x97 => SUB(A),
@@ -437,15 +438,14 @@ impl From<u8> for Instruction {
 
             // --------------- Restarts ---------------
 
-            // TODO!
-            0xC7 => RST(Memory(Box::new(Word), 0)),
-            0xCF => RST(Memory(Box::new(Word), 0)),
-            0xD7 => RST(Memory(Box::new(Word), 0)),
-            0xDF => RST(Memory(Box::new(Word), 0)),
-            0xE7 => RST(Memory(Box::new(Word), 0)),
-            0xEF => RST(Memory(Box::new(Word), 0)),
-            0xF7 => RST(Memory(Box::new(Word), 0)),
-            0xFF => RST(Memory(Box::new(Word), 0)),
+            0xC7 => RST(FixedValue(0x0000 + 00)),
+            0xCF => RST(FixedValue(0x0000 + 08)),
+            0xD7 => RST(FixedValue(0x0000 + 10)),
+            0xDF => RST(FixedValue(0x0000 + 18)),
+            0xE7 => RST(FixedValue(0x0000 + 20)),
+            0xEF => RST(FixedValue(0x0000 + 28)),
+            0xF7 => RST(FixedValue(0x0000 + 30)),
+            0xFF => RST(FixedValue(0x0000 + 38)),
 
             // --------------- Returns ---------------
 

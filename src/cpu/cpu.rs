@@ -8,7 +8,7 @@ use crate::memory::MemorySpace;
 use crate::cpu::instruction::Instruction::*;
 use super::instruction::Operand::*;
 use super::register::*;
-use crate::utils::{as_u16, lohi};
+use crate::utils::{as_u16, hilo};
 use std::borrow::Borrow;
 
 type OpCode = u8;
@@ -16,7 +16,7 @@ type OpCode = u8;
 #[derive(Debug)]
 pub struct CPU {
     pub register: Registers,
-    memory: MemorySpace,
+    pub memory: MemorySpace,
     pub cycle: u32,
     pub halted: bool,
     pub stopped: bool,
@@ -52,12 +52,8 @@ impl CPU {
     }
 
     fn fetch(&mut self) -> OpCode {
-        trace!("Fetching next byte. PC: {:#?}", self.register.PC);
-        let data = self.memory[ self.register.PC ];
-        self.register.PC += 1;
-        self.cycle += 4;
-
-        data
+        trace!("Fetching next opcode. PC: {:#?}", self.register.PC);
+        self.read(Word)
     }
 
     fn decode(&mut self, opcode: OpCode) -> Instruction {
@@ -95,37 +91,33 @@ impl CPU {
                 self.execute(INC16(HL));
             },
             LDH(op1, op2) => {
+                // identical to LD8 since the offset is set at instruction level
                 let data: u8 = self.read(op2);
                 self.write(op1, data);
             },
-            LDHL(_, op2) => {
+            LDHL(sp, op2) => {
                 let offset: u8 = self.read(op2);
-                let addr = self.register.SP + offset as u16;
-                //self.write(op2, addr);
+                let address = self.register.SP + offset as u16;
+
                 // Write addr to HL
+                self.write(HL, address);
+
+                // TODO FLAGS
             },
             PUSH(op) => {
                 let data: u16 = self.read(op);
-                let (lo, hi) = lohi(data);
-                self.push(lo);
-                self.push(hi);
+                self.push(data);
             },
             POP(op) => {
-                let data = as_u16(self.pop(), self.pop() );
+                let data: u16 = self.pop();
                 self.write(op, data)
             },
             ADD8(op1, op2) => {
                 let n: u8 = self.read(op2);
-                let (result, overflow) = self.register[A].overflowing_add(n);
-                self.register[A] = result;
-
-                if result == 0 {
-                    self.register.set_flag(Flags::Zero);
-                }
-
-                if overflow {
-                    self.register.set_flag(Flags::Carry);
-                }
+                println!("n {}", n);
+                let result = self.register.carrying_add(self.register.A, n);
+                println!("result {}", result);
+                self.register.A = result;
             },
             ADD16(op1, op2) => {
                 let x: u16 = self.read(op1.clone());
@@ -139,41 +131,50 @@ impl CPU {
                 }
             },
             ADC(op1, op2) => {
+                let mut n: u8 = self.read(op2);
+                if self.register.read_flag(Flags::Carry) {
+                    n += 1;
+                }
 
+                let result = self.register.carrying_add(self.register.A, n);
+                self.register.A = result;
             },
             SUB(op) => {
-                let x: u8 = self.read(op.clone());
-
-                let (res, overflow) = self.register[A].overflowing_sub(x);
-                self.register[A] = res;
-
-                if overflow {
-
-                }
+                let n: u8 = self.read(op);
+                let result = self.register.borrowing_sub(self.register.A, n);
+                self.register.A = result;
             },
-            SBC(op1, op2) => {},
+            SBC(op1, op2) => {
+                let mut n: u8 = self.read(op2);
+                if self.register.read_flag(Flags::Carry) {
+                    n += 1;
+                }
+
+                let result = self.register.borrowing_sub(self.register.A, n);
+                self.register.A = result;
+            },
             AND(op) => {
                 let n: u8 = self.read(op);
-                self.register[A] &= n;
+                self.register.A &= n;
 
-                if self.register[A] == 0 {
+                if self.register.A == 0 {
                     self.register.set_flag(Flags::Zero );
                 }
                 self.register.set_flag(Flags::HalfCarry );
             },
             OR(op) => {
                 let n: u8 = self.read(op);
-                self.register[A] |= n;
+                self.register.A |= n;
 
-                if self.register[A] == 0 {
+                if self.register.A == 0 {
                     self.register.set_flag( Flags::Zero );
                 }
             },
             XOR(op) => {
                 let n: u8 = self.read(op);
-                self.register[A] ^= n;
+                self.register.A ^= n;
 
-                if self.register[A] == 0 {
+                if self.register.A == 0 {
                     self.register.set_flag( Flags::Zero );
                 }
             },
@@ -185,39 +186,23 @@ impl CPU {
             },
             INC8(op) => {
                 let n: u8 = self.read(op.clone());
-                let (result, overflow) = n.overflowing_add(1);
+                let result = self.register.carrying_add(n, 1);
                 self.write(op, result);
-
-                if overflow {
-                    // TODO flags
-                }
             },
             INC16(op) => {
                 let n: u16 = self.read(op.clone());
-                let (result, overflow) = n.overflowing_add(1);
+                let result = self.register.carrying_add(n, 1);
                 self.write(op, result);
-
-                if overflow {
-                    // TODO flags
-                }
             },
             DEC8(op) => {
                 let n: u8 = self.read(op.clone());
-                let (result, overflow) = n.overflowing_sub(1);
+                let result = self.register.borrowing_sub(n, 1);
                 self.write(op, result);
-
-                if overflow {
-                    // TODO flags
-                }
             },
             DEC16(op) => {
                 let n: u16 = self.read(op.clone());
-                let (result, overflow) = n.overflowing_sub(1);
+                let result = self.register.borrowing_sub(n, 1);
                 self.write(op, result);
-
-                if overflow {
-                    // TODO flags
-                }
             },
             SWAP(op) => {
                 let n: u8 = self.read(op.clone());
@@ -226,17 +211,31 @@ impl CPU {
                 if n == 0 {
                     self.register.set_flag( Flags::Zero )
                 }
+                self.register.reset_flag(Flags::Subtract);
+                self.register.reset_flag(Flags::HalfCarry);
+                self.register.reset_flag(Flags::Carry);
             },
             DAA => {},
             CPL => {
                 self.register.A = self.register.A.reverse_bits();
-                // TODO flags
+
+                self.register.reset_flag(Flags::Subtract);
+                self.register.reset_flag(Flags::HalfCarry);
             },
             CCF => {
-                // TODO flags
+                if self.register.read_flag(Flags::Carry) {
+                    self.register.reset_flag(Flags::Carry);
+                } else {
+                    self.register.set_flag(Flags::Carry);
+                }
+
+                self.register.reset_flag(Flags::Subtract);
+                self.register.reset_flag(Flags::HalfCarry);
             },
             SCF => {
-                // TODO flags
+                self.register.reset_flag(Flags::Subtract);
+                self.register.reset_flag(Flags::HalfCarry);
+                self.register.set_flag(Flags::Carry);
             },
             NOP => (),
             HALT => {
@@ -251,6 +250,73 @@ impl CPU {
             EI => {
                 self.interrupts_enabled = true;
             },
+
+            // ---------- JUMP INSTRUCTIONS ----------
+            JP1(op) => {
+                let address: u16 = self.read(op);
+                self.register.PC = address;
+            },
+            JP(op1, op2) => {
+                if self.jump_allowed(op1) {
+                    let address: u16 = self.read(op2);
+                    self.register.PC = address;
+                }
+            },
+            JR1(op) => {
+                let offset: u8 = self.read(op);
+                self.register.PC += offset as u16;
+            },
+            JR(cc, nn) => {
+                if self.jump_allowed(cc) {
+                    let offset: u8 = self.read(nn);
+                    self.register.PC += offset as u16;
+                }
+            },
+
+            // ---------- CALL INSTRUCTIONS ----------
+            CALL1(op) => {
+                // Push address of next instruction
+                self.push(self.register.PC + 1);
+                // Jump to address by replacing Program Counter with value
+                let address: u16 = self.read(op);
+                self.jump(address);
+            },
+            CALL(op1, op2) => {
+
+                if self.jump_allowed(op1) {
+                    // Push current Stack Pointer
+                    self.push(self.register.PC + 1);
+                    // Jump to address by replacing Program Counter with value
+                    let address: u16 = self.read(op2);
+                    self.jump(address);
+                }
+            },
+            RST(op) => {
+                self.execute(PUSH(SP));
+
+                let address = match op {
+                    FixedValue(address) => address,
+                    _ => panic!("Illegal operand {:?} for restart address", op)
+                };
+                self.jump(address);
+                self.cycle += 20;
+            },
+            RET_ => {
+                let address = self.pop();
+                self.jump(address);
+                // TODO review cycle accuracy
+            },
+            RET(cc) => {
+                if self.jump_allowed(cc) {
+                    self.execute(RET_);
+                }
+            },
+            RETI => {
+                self.execute(RET_);
+                self.execute(EI);
+            },
+
+            // ---------- ROTATE INSTRUCTIONS ----------
             RLCA => {
                 let old_bit = self.register.A & 0b10000000;
                 self.register.A = self.register.A.rotate_left(1);
@@ -268,66 +334,17 @@ impl CPU {
                 // TDDO Old bit 0 to Carry flag
             },
             RRA => {},
-            JP1(op) => {
-                let address: u16 = self.read(op);
-                self.register.PC = address;
-                self.cycle += 12;
-            },
-            JP(op1, op2) => {
-                if self.jump_allowed(op1) {
-                    let address: u16 = self.read(op2);
-                    self.register.PC = address;
-                    self.cycle += 12;
-                }
-            },
-            JR1(op) => {
-                let offset: u8 = self.read(op);
-                self.register.PC += offset as u16;
-                self.cycle += 12;
-            },
-            JR(cc, nn) => {
-                if self.jump_allowed(cc) {
-                    let offset: u8 = self.read(nn);
-                    self.register.PC += offset as u16;
-                    self.cycle += 12;
-                }
-            },
-            CALL1(op) => {
-
-                let (lo, hi) = lohi(self.register.PC + 1);
-                self.push( lo );
-                self.push( hi );
-
-                let address: u16 = self.read(op);
-                self.register.PC = address;
-                self.cycle += 12;
-            },
-            CALL(op1, op2) => {
-
-                if self.jump_allowed(op1) {
-                    // Push current Stack Pointer
-                    let (lo, hi) = lohi(self.register.SP);
-                    self.push( lo );
-                    self.push( hi );
-                    // Jump to address by replacing Stack Pointer with value
-                    let address: u16 = self.read(op2);
-                    self.register.PC = address;
-                    self.cycle += 12;
-                }
-            },
-            RST(op) => {
-
-            },
-            RET_ => {},
-            RET(op) => {},
-            RETI => {},
             RLC(op) => {},
             RL(op) => {},
             RRC(op) => {},
             RR(op) => {},
+            // ---------- SHIFT INSTRUCTIONS ----------
             SLA(op) => {},
             SRA(op) => {},
             SRL(op) => {},
+
+            // ---------- BIT INSTRUCTIONS ----------
+
             BIT(op1, op2) => {
                 let nth_bit: u8 = self.read(op1);
                 let value: u8 = self.read(op2.clone());
@@ -348,7 +365,7 @@ impl CPU {
             RES(op1, op2) => {
                 let nth_bit: u8 = self.read(op1);
                 let value: u8 = self.read(op2.clone());
-                let result: u8 = value & !(1 << flag as u8);
+                let result: u8 = value & !(1 << nth_bit);
                 self.write(op2, value);
             },
         }
@@ -364,23 +381,28 @@ impl CPU {
         }
     }
 
-    fn push(&mut self, data: u8) {
-        self.write( Memory(Box::new(SP), 0x0), data );
+    fn jump(&mut self, address: u16) {
+        self.register.PC = address;
         self.cycle += 8;
-        self.register.SP -= 1;
     }
 
-    fn pop(&mut self) -> u8 {
-        let data = self.read(Memory(Box::new(SP), 0x0) );
-        self.cycle += 8;
-        self.register.SP += 1;
-        data
+    // USE FOR TESTING PURPOSES
+    // TODO find a way to impl this in cpu_test
+    pub fn exec_single_instruction(&mut self) {
+        let opcode = self.fetch();
+        let instruction = self.decode( opcode );
+        self.execute( instruction );
     }
 }
 
-trait ReadWrite<T> {
+pub trait ReadWrite<T> {
     fn read(&mut self, operand: Operand) -> T;
     fn write(&mut self, operand: Operand, data: T);
+}
+
+trait PushPop<T> {
+    fn push(&mut self, data: T);
+    fn pop(&mut self) -> T;
 }
 
 impl ReadWrite<u8> for CPU {
@@ -388,18 +410,25 @@ impl ReadWrite<u8> for CPU {
         let op = operand.clone();
 
         let word = match operand {
-            A | B | C | D | E | F | H | L => {
-                // reading registers does not consume cycles
-                self.register[operand]
-            },
+            // reading registers does not consume cycles
+            A => self.register.A,
+            B => self.register.B,
+            C => self.register.C,
+            D => self.register.D,
+            E => self.register.E,
+            F => self.register.F,
+            H => self.register.H,
+            L => self.register.L,
             Memory(addr, offset) => {
                 self.cycle += 4;
                 let address: u16 = self.read(*addr);
                 self.memory[ address + offset ]
             },
             Word => {
+                let data = self.memory[ self.register.PC ];
+                self.register.PC += 1;
                 self.cycle += 4;
-                self.fetch()
+                data
             },
             _ => panic!("Invalid operand {:?} to read word", operand)
         };
@@ -412,9 +441,14 @@ impl ReadWrite<u8> for CPU {
         trace!("Writing word {:#X} into {:?}", data, operand);
 
         match operand {
-            A | B | C | D | E | F | H | L => {
-                self.register[operand] = data;
-            }
+            A => self.register.A = data,
+            B => self.register.B = data,
+            C => self.register.C = data,
+            D => self.register.D = data,
+            E => self.register.E = data,
+            F => self.register.F = data,
+            H => self.register.H = data,
+            L => self.register.L = data,
             HL => {},
             AF => {},
             BC => {},
@@ -438,7 +472,8 @@ impl ReadWrite<u16> for CPU {
 
         let dword = match operand {
             A | B | C | D | E | F | H | L => {
-                self.register[operand] as u16
+                let data: u8 = self.read(operand);
+                data as u16
             },
             HL => self.register.read_HL(),
             AF => self.register.read_AF(),
@@ -465,10 +500,68 @@ impl ReadWrite<u16> for CPU {
             DE => self.register.write_DE(data),
             SP => self.register.SP = data,
             PC => self.register.PC = data,
-            Memory(addr, offset) => {
-
-            },
             _ => panic!("Invalid operand {:?} to write word", operand)
         }
     }
 }
+
+impl PushPop<u8> for CPU {
+    fn push(&mut self, data: u8) {
+        self.write( Memory(Box::new(SP), 0x0), data );
+        self.register.SP -= 1;
+    }
+
+    fn pop(&mut self) -> u8 {
+        let data = self.read(Memory(Box::new(SP), 0x0) );
+        self.register.SP += 1;
+        data
+    }
+}
+
+impl PushPop<u16> for CPU {
+    fn push(&mut self, data: u16) {
+        let (hi, lo) = hilo(data);
+        self.push(lo);
+        self.push(hi);
+    }
+
+    fn pop(&mut self) -> u16 {
+        let (hi, lo) = (self.pop(), self.pop());
+        as_u16(hi, lo)
+    }
+}
+
+#[cfg(test)]
+mod cpu_tests {
+    use super::*;
+
+    #[test]
+    fn should_fetch_opcode() {
+        let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
+        let current_cycle = cpu.cycle;
+        let current_program_counter = cpu.register.PC;
+
+        let opcode = cpu.fetch();
+
+        assert_eq!(opcode, 0xFF);
+        assert_eq!(cpu.cycle, current_cycle + 4);
+        assert_eq!(cpu.register.PC, current_program_counter + 1);
+    }
+
+    #[test]
+    fn should_decode_simple_instruction() {
+        let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
+
+        let instruction = cpu.decode(0x06);
+        assert_eq!(instruction, LD8(B, Word));
+    }
+
+    #[test]
+    fn should_decode_complex_instruction() {
+        let mut cpu = CPU::new(MemorySpace::new(&[0x37]));
+
+        let instruction = cpu.decode(0xCB);
+        assert_eq!(instruction, SWAP(A));
+    }
+}
+
