@@ -245,7 +245,6 @@ fn should_add() {
 }
 
 #[test]
-#[ignore]
 fn should_sub() {
 
     let mut cpu = CPU::new(MemorySpace::new(&[0x97]));

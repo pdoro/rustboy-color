@@ -114,21 +114,15 @@ impl CPU {
             },
             ADD8(op1, op2) => {
                 let n: u8 = self.read(op2);
-                println!("n {}", n);
                 let result = self.register.carrying_add(self.register.A, n);
-                println!("result {}", result);
                 self.register.A = result;
             },
             ADD16(op1, op2) => {
                 let x: u16 = self.read(op1.clone());
                 let y: u16 = self.read(op2);
 
-                let (res, overflow) = x.overflowing_add(y);
-                self.write(op1, res);
-
-                if overflow {
-
-                }
+                let result= self.register.carrying_add(x, y);
+                self.write(op1, result);
             },
             ADC(op1, op2) => {
                 let mut n: u8 = self.read(op2);
@@ -180,9 +174,7 @@ impl CPU {
             },
             CP(op) => {
                 let n: u8 = self.read(op);
-                let result: u8 = self.register.A - n;
-
-                // TODO WRITE FLAGS
+                self.register.borrowing_sub(self.register.A, n);
             },
             INC8(op) => {
                 let n: u8 = self.read(op.clone());
@@ -551,7 +543,6 @@ mod cpu_tests {
     #[test]
     fn should_decode_simple_instruction() {
         let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
-
         let instruction = cpu.decode(0x06);
         assert_eq!(instruction, LD8(B, Word));
     }
@@ -559,7 +550,6 @@ mod cpu_tests {
     #[test]
     fn should_decode_complex_instruction() {
         let mut cpu = CPU::new(MemorySpace::new(&[0x37]));
-
         let instruction = cpu.decode(0xCB);
         assert_eq!(instruction, SWAP(A));
     }

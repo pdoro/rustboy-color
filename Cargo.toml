@@ -11,3 +11,9 @@ chrono = "0.4"
 #clap = {version = "~2.32.0", features = ["yaml"]}
 
 #amethyst = "0.13.2"
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+
