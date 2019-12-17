@@ -2,6 +2,8 @@ pub use crate::cpu::cpu::CPU;
 use crate::cpu::cpu::ReadWrite;
 pub use crate::memory::MemorySpace;
 pub use crate::cpu::instruction::Operand;
+use crate::cpu::register::*;
+use crate::cpu::instruction::Operand::{HL, Memory};
 
 macro_rules! test_instruction {
     ( $cpu:ident, $reg:expr, $expected_val:expr, $expected_cycle:expr ) => {
@@ -9,6 +11,10 @@ macro_rules! test_instruction {
         assert_eq!($reg, $expected_val);
         assert_eq!($cpu.cycle, $expected_cycle);
     };
+}
+
+pub fn print_bit(x: u8) {
+    println!("{:#010b}", x);
 }
 
 #[test]
@@ -290,3 +296,171 @@ fn should_sub() {
     cpu.register.A = 1;
     test_instruction!(cpu, cpu.register.A, 0x00, 8);
 }
+
+#[test]
+fn should_swap() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x37]));
+    cpu.register.A = 0xAB;
+    test_instruction!(cpu, cpu.register.A, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x30]));
+    cpu.register.B = 0xAB;
+    test_instruction!(cpu, cpu.register.B, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x31]));
+    cpu.register.C = 0xAB;
+    test_instruction!(cpu, cpu.register.C, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x32]));
+    cpu.register.D = 0xAB;
+    test_instruction!(cpu, cpu.register.D, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x33]));
+    cpu.register.E = 0xAB;
+    test_instruction!(cpu, cpu.register.E, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x34]));
+    cpu.register.H = 0xAB;
+    test_instruction!(cpu, cpu.register.H, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x35]));
+    cpu.register.L = 0xAB;
+    test_instruction!(cpu, cpu.register.L, 0xBA, 8);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0xCB, 0x36, 0xAB]));
+    cpu.register.write_HL(2);
+    cpu.exec_single_instruction();
+    assert_eq!(cpu.memory[2], 0xBA);
+    assert_eq!(cpu.cycle, 16);
+}
+
+#[test]
+fn should_complement_register() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x2F]));
+    cpu.register.A = 0x00;
+    test_instruction!(cpu, cpu.register.A, 0xFF, 4);
+}
+
+#[test]
+fn should_complement_carry_flag() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x3F]));
+    cpu.register.F = 0b01100000;
+    test_instruction!(cpu, cpu.register.F, 0b00010000, 4);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x3F]));
+    cpu.register.F = 0b11110000;
+    test_instruction!(cpu, cpu.register.F, 0b10000000, 4);
+}
+
+#[test]
+fn should_set_carry_flag() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x37]));
+    cpu.register.F = 0b01100000;
+    test_instruction!(cpu, cpu.register.F, 0b00010000, 4);
+}
+
+#[test]
+fn should_nope() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x00]));
+    test_instruction!(cpu, cpu.register.A, 0x0, 4);
+}
+
+///////////////////// Rotates and Shift /////////////////////
+
+#[test]
+fn should_rotate_left() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x07]));
+    cpu.register.A = 0b10010101;
+    test_instruction!(cpu, cpu.register.A, 0b00101010, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), true);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x07]));
+    cpu.register.A = 0b01010101;
+    test_instruction!(cpu, cpu.register.A, 0b10101010, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), false);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x07]));
+    cpu.register.A = 0x00;
+    test_instruction!(cpu, cpu.register.A, 0x00, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Zero), true);
+}
+
+#[test]
+fn should_rotate_left_through_carry() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x17]));
+    cpu.register.A = 0b10010101;
+    test_instruction!(cpu, cpu.register.A, 0b00101010, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), true);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x17]));
+    cpu.register.F = 0b00010000; // carry on
+    cpu.register.A = 0b01010101;
+    test_instruction!(cpu, cpu.register.A, 0b10101011, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), false);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x17]));
+    cpu.register.F = 0b00010000; // carry on
+    cpu.register.A = 0b11010101;
+    test_instruction!(cpu, cpu.register.A, 0b10101011, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), true);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+}
+
+#[test]
+fn should_rotate_right() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x0F]));
+    cpu.register.A = 0b10100101;
+    test_instruction!(cpu, cpu.register.A, 0b01010010, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), true);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x0F]));
+    cpu.register.A = 0b10101010;
+    test_instruction!(cpu, cpu.register.A, 0b01010101, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), false);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x0F]));
+    cpu.register.A = 0x00;
+    test_instruction!(cpu, cpu.register.A, 0x00, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Zero), true);
+}
+
+#[test]
+fn should_rotate_right_through_carry() {
+    let mut cpu = CPU::new(MemorySpace::new(&[0x1F]));
+    cpu.register.A = 0b10100101;
+    test_instruction!(cpu, cpu.register.A, 0b01010010, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), true);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x1F]));
+    cpu.register.F = 0b00010000; // carry on
+    cpu.register.A = 0b10101010;
+    test_instruction!(cpu, cpu.register.A, 0b11010101, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), false);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+
+    let mut cpu = CPU::new(MemorySpace::new(&[0x1F]));
+    cpu.register.F = 0b00010000; // carry on
+    cpu.register.A = 0b10101011;
+    test_instruction!(cpu, cpu.register.A, 0b11010101, 4);
+    assert_eq!(cpu.register.read_flag(Flags::Carry), true);
+    assert_eq!(cpu.register.read_flag(Flags::Subtract), false);
+    assert_eq!(cpu.register.read_flag(Flags::HalfCarry), false);
+}
+
+

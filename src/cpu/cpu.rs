@@ -198,9 +198,10 @@ impl CPU {
             },
             SWAP(op) => {
                 let n: u8 = self.read(op.clone());
-                self.write(op, n.swap_bytes());
+                let swap = (n & 0xF0) >> 4 | (n & 0xF) << 4;
+                self.write(op, swap);
 
-                if n == 0 {
+                if swap == 0 {
                     self.register.set_flag( Flags::Zero )
                 }
                 self.register.reset_flag(Flags::Subtract);
@@ -209,7 +210,7 @@ impl CPU {
             },
             DAA => {},
             CPL => {
-                self.register.A = self.register.A.reverse_bits();
+                self.register.A ^= 0xFF;
 
                 self.register.reset_flag(Flags::Subtract);
                 self.register.reset_flag(Flags::HalfCarry);
@@ -228,19 +229,6 @@ impl CPU {
                 self.register.reset_flag(Flags::Subtract);
                 self.register.reset_flag(Flags::HalfCarry);
                 self.register.set_flag(Flags::Carry);
-            },
-            NOP => (),
-            HALT => {
-                self.halted = true;
-            },
-            STOP => {
-                self.stopped = true;
-            },
-            DI => {
-                self.interrupts_enabled = false;
-            },
-            EI => {
-                self.interrupts_enabled = true;
             },
 
             // ---------- JUMP INSTRUCTIONS ----------
@@ -309,31 +297,68 @@ impl CPU {
             },
 
             // ---------- ROTATE INSTRUCTIONS ----------
-            RLCA => {
+            RLCA => { self.execute(RLC(A)); },
+            RLA => { self.execute(RL(A)); },
+            RRCA => { self.execute(RRC(A)); },
+            RRA => { self.execute(RR(A)); },
+            RLC(op) => {
                 let old_bit = self.register.A & 0b10000000;
-                self.register.A = self.register.A.rotate_left(1);
+                // Shift 1 bit left and keep only the byte
+                self.register.A = (self.register.A << 1) & 0xFF;
 
-                if self.register.A == 0 {
-                    self.register.set_flag( Flags::Zero )
-                }
-                if old_bit != 0 {
-                    self.register.set_flag( Flags::Carry )
-                }
+                if self.register.A == 0 { self.register.set_flag( Flags::Zero ); }
+                if old_bit != 0 { self.register.set_flag( Flags::Carry ); }
+
+                self.register.reset_flag( Flags::Subtract );
+                self.register.reset_flag( Flags::HalfCarry );
             },
-            RLA => {},
-            RRCA => {
-                self.register.A = self.register.A.rotate_right(1);
-                // TDDO Old bit 0 to Carry flag
+            RL(op) => {
+                let old_bit = self.register.A & 0b10000000;
+                // Shift 1 bit left and keep only the byte
+                self.register.A = (self.register.A << 1) & 0xFF;
+
+                if self.register.read_flag(Flags::Carry) {
+                    self.register.A |= 0x01;
+                    self.register.reset_flag( Flags::Carry );
+                }
+
+                if self.register.A == 0 { self.register.set_flag( Flags::Zero ); }
+                if old_bit != 0 { self.register.set_flag( Flags::Carry ); }
+
+                self.register.reset_flag( Flags::Subtract );
+                self.register.reset_flag( Flags::HalfCarry );
             },
-            RRA => {},
-            RLC(op) => {},
-            RL(op) => {},
-            RRC(op) => {},
-            RR(op) => {},
+            RRC(op) => {
+                let old_bit = self.register.A & 0b00000001;
+                // Shift 1 bit left and keep only the byte
+                self.register.A = (self.register.A >> 1) & 0xFF;
+
+                if self.register.A == 0 { self.register.set_flag( Flags::Zero ); }
+                if old_bit != 0 { self.register.set_flag( Flags::Carry ); }
+
+                self.register.reset_flag( Flags::Subtract );
+                self.register.reset_flag( Flags::HalfCarry );
+            },
+            RR(op) => {
+                let old_bit = self.register.A & 0b00000001;
+                // Shift 1 bit left and keep only the byte
+                self.register.A = (self.register.A >> 1) & 0xFF;
+
+                if self.register.read_flag(Flags::Carry) {
+                    self.register.A |= 0x80;
+                    self.register.reset_flag( Flags::Carry );
+                }
+
+                if self.register.A == 0 { self.register.set_flag( Flags::Zero ); }
+                if old_bit != 0 { self.register.set_flag( Flags::Carry ); }
+
+                self.register.reset_flag( Flags::Subtract );
+                self.register.reset_flag( Flags::HalfCarry );
+            },
             // ---------- SHIFT INSTRUCTIONS ----------
-            SLA(op) => {},
-            SRA(op) => {},
-            SRL(op) => {},
+            SLA(op) => { unimplemented!() },
+            SRA(op) => { unimplemented!() },
+            SRL(op) => { unimplemented!() },
 
             // ---------- BIT INSTRUCTIONS ----------
 
@@ -360,6 +385,13 @@ impl CPU {
                 let result: u8 = value & !(1 << nth_bit);
                 self.write(op2, value);
             },
+
+            NOP => {},
+            HALT => { self.halted = true; },
+            STOP => { self.stopped = true; },
+            // TODO why unreachable pattern???
+            DI => { self.interrupts_enabled = false; },
+            EI => { self.interrupts_enabled = true; },
         }
     }
 
