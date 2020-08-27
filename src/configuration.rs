@@ -1,7 +1,6 @@
 
 use log;
 use clap::ArgMatches;
-use crate::configuration::SwitchStatus::ON;
 
 
 pub struct Config {

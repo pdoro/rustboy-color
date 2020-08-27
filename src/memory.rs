@@ -1,82 +1,55 @@
-
-use log::{trace, debug, info};
-use std::ops::{Index, IndexMut, Range};
-use std::fmt;
-use std::ops;
+use crate::cartrigbe::{Cartrigbe, MemoryBankController};
+use log::{debug, info, trace};
+use std::ops::Range;
+use std::{fmt, ops};
 
 type Address = u16;
 type Byte = u8;
 
-pub struct MemorySpace([u8; 256]);
+pub struct MemorySpace {
+    space: [u8; 65_536],
+
+    // Cartrigbe Data 0x0000 .. 0x8000
+    // Cartrigbe RAM  0xC000 .. 0xE000
+    cartrigbe: Cartrigbe,
+}
 
 impl MemorySpace {
-    pub fn new(data : &[u8]) -> MemorySpace {
-        let mut memory = [0; 256];
-        memory[0..data.len()].copy_from_slice( data );
-        MemorySpace(memory)
+    pub fn new(cartrigbe: Cartrigbe) -> MemorySpace {
+
+        let mut space = [0; 65_536];
+        let copy_range = CartridgeRam_RANGE.start..data.len();
+        space[copy_range].copy_from_slice(data);
+
+        MemorySpace {
+            space,
+            cartrigbe
+        }
     }
 
-//    pub fn find_memory_area(&self, address: Address) -> MemoryArea {
-//
-//        if BOOTROM_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if GameRomBank0_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if GameRomBankN_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if TileRam_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if BackgroundMap_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if CartridgeRam_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if WorkingRam_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if EchoRam_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if ObjectAttributeMemory_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if Unmapped_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if IORegisters_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if HighRam_RANGE.contains(&address) { MemoryArea::BootRom }
-//        if InterruptEnabledRegiste_RANGE.contains(&address) { MemoryArea::BootRom }
-//
-//        panic!("Address {:#X} does not belong to memory space, cannot map to area", address)
-//    }
+    pub fn cartbridgeIsMapped(&self) -> bool {
+        self[0xFF50] == 1
+    }
 }
-
-// http://gameboy.mongenel.com/dmg/asmmemmap.html
-pub enum MemoryArea {
-    BootRom,
-    GameRomBank0,
-    GameRomBankN,
-    TileRam,
-    BackgroundMap,
-    CartridgeRam,
-    WorkingRam,
-    EchoRam,
-    ObjectAttributeMemory,
-    Unmapped,
-    IORegisters,
-    HighRam,
-    InterruptEnabledRegister
-}
-//
-//const BOOTROM_RANGE: Range<Address> = (MEMORY_START..0x00FF);
-//const GameRomBank0_RANGE: Range<Address> = (MEMORY_START..0x3FFF);
-//const GameRomBankN_RANGE: Range<Address> = (0x4000..0x7FFF);
-//const TileRam_RANGE: Range<Address> =       (0x8000..0x97FF);
-//const BackgroundMap_RANGE: Range<Address> = (0x9800..0x9FFF);
-//const CartridgeRam_RANGE: Range<Address> = (0xA000..0xBFFF);
-//const WorkingRam_RANGE: Range<Address> = (0x8000..0x00FF);
-//const EchoRam_RANGE: Range<Address> =     (0x8000..0x00FF);
-//const ObjectAttributeMemory_RANGE: Range<Address> = (0x8000..0x00FF);
-//const Unmapped_RANGE: Range<Address> = (0x8000..0x00FF);
-//const IORegisters_RANGE: Range<Address> = (0x8000..0x00FF);
-//const HighRam_RANGE: Range<Address> = (0x8000..0x00FF);
-//const InterruptEnabledRegiste_RANGE: Range<Address> = (0x8000..0x00FF);
 
 const MEMORY_START: Address = 0x0000;
-const MEMORY_END: Address   = 0xFFFF;
+const MEMORY_END: Address = 0xFFFF;
 
-impl Default for MemorySpace {
-    fn default() -> Self {
-        Self::new(&BOOT_ROM)
-    }
-}
+// http://gameboy.mongenel.com/dmg/asmmemmap.html
+const InterruptVector_RANGE: Range<Address> = 0x0000..0x00FF;
+const CartridgeRom_RANGE: Range<Address> = 0x0100..0x07FF;
+const TileRam_RANGE: Range<Address> = 0x8000..0x97FF;
+const BackgroundMap_RANGE: Range<Address> = 0x9800..0x9FFF;
+const CartridgeRam_RANGE: Range<Address> = 0xA000..0xBFFF;
+const WorkingRam_RANGE: Range<Address> = 0x8000..0x00FF;
+const EchoRam_RANGE: Range<Address> = 0x8000..0x00FF;
+const ObjectAttributeMemory_RANGE: Range<Address> = 0x8000..0x00FF;
+const Unmapped_RANGE: Range<Address> = 0x8000..0x00FF;
+const IORegisters_RANGE: Range<Address> = 0x8000..0x00FF;
+const HighRam_RANGE: Range<Address> = 0x8000..0x00FF;
+const InterruptEnabledRegister_RANGE: Range<Address> = 0x8000..0x00FF;
 
-impl Index<Address> for MemorySpace {
+impl ops::Index<Address> for MemorySpace {
     type Output = Byte;
 
     fn index(&self, address: Address) -> &Self::Output {
@@ -84,25 +57,45 @@ impl Index<Address> for MemorySpace {
             panic!("Invalid unsafe memory access to {:#X}", address);
         } else {
             trace!("Reading memory address {:#X}", address);
-            &self.0[ address as usize ]
+
+            match address as usize {
+                InterruptVector_RANGE => &self.space[address],
+                CartridgeRom_RANGE => {
+                    if self.cartbridgeIsMapped() {
+                        &self.cartrigbe.read(address)
+                    } else {
+                        // Boot Rom
+                        &self[address]
+                    }
+                }
+                TileRam_RANGE => &self.space[address],
+                BackgroundMap_RANGE => {}
+                CartridgeRam_RANGE => &self.cartrigbe.read(address),
+                WorkingRam_RANGE => &self.internal_ram[address],
+                EchoRam_RANGE => &self.echo_ram[address],
+                ObjectAttributeMemory_RANGE => {}
+                Unmapped_RANGE => {}
+                IORegisters_RANGE => {}
+                HighRam_RANGE => &self.space[address],
+                InterruptEnabledRegister_RANGE => {}
+                _ => panic!("Address {:#X} does not belong to memory space, cannot map to area", address),
+            }
         }
     }
 }
 
-
-impl IndexMut<Address> for MemorySpace {
-
+impl ops::IndexMut<Address> for MemorySpace {
     fn index_mut(&mut self, address: Address) -> &mut Self::Output {
         if address < MEMORY_START || address > MEMORY_END {
             panic!("Invalid unsafe memory write to {:#X}", address);
         } else {
             trace!("Writing memory address {:#X}", address);
-            &mut self.0[ address as usize ]
+            &mut self.0[address as usize]
         }
     }
 }
 
-impl std::fmt::Debug for MemorySpace {
+impl fmt::Debug for MemorySpace {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Memory({:?} bytes)", self.0.len())
     }

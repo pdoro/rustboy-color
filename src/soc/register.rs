@@ -1,7 +1,6 @@
 
-use crate::utils::{as_u16};
-use crate::cpu::instruction::Operand;
-use std::{fmt, ops, u8, u16};
+use crate::utils::as_u16;
+use std::{fmt, u16, u8};
 
 #[allow(non_snake_case)]
 pub struct Registers {
@@ -19,10 +18,10 @@ pub struct Registers {
 }
 
 pub enum Flags {
-   Zero = 7,
-   Subtract = 6,
-   HalfCarry = 5,
-   Carry = 4,
+    Zero = 7,
+    Subtract = 6,
+    HalfCarry = 5,
+    Carry = 4,
 }
 
 impl Default for Registers {
@@ -45,7 +44,6 @@ impl Default for Registers {
 
 #[allow(non_snake_case)]
 impl Registers {
-
     // Special registers
     pub fn read_AF(&self) -> u16 {
         as_u16(self.A, self.F)
@@ -114,9 +112,15 @@ impl MathOps<u8> for Registers {
         let (sum, carry) = x.overflowing_add(y);
         let half_carry = (((x & 0xF) + (y & 0xF)) & 0x10) == 0x10;
 
-        if carry { self.set_flag(Flags::Carry); }
-        if half_carry { self.set_flag(Flags::HalfCarry); }
-        if sum == 0 { self.set_flag(Flags::Zero) }
+        if carry {
+            self.set_flag(Flags::Carry);
+        }
+        if half_carry {
+            self.set_flag(Flags::HalfCarry);
+        }
+        if sum == 0 {
+            self.set_flag(Flags::Zero)
+        }
         self.reset_flag(Flags::Subtract);
 
         sum
@@ -126,9 +130,15 @@ impl MathOps<u8> for Registers {
         let (sub, borrow) = x.overflowing_sub(y);
         let half_borrow = (x & 0xF) < (y & 0xF); // https://www.reddit.com/r/EmuDev/comments/4clh23/trouble_with_halfcarrycarry_flag
 
-        if !borrow { self.set_flag(Flags::Carry) }
-        if !half_borrow { self.set_flag(Flags::HalfCarry) }
-        if sub == 0 { self.set_flag(Flags::Zero) }
+        if !borrow {
+            self.set_flag(Flags::Carry)
+        }
+        if !half_borrow {
+            self.set_flag(Flags::HalfCarry)
+        }
+        if sub == 0 {
+            self.set_flag(Flags::Zero)
+        }
         self.set_flag(Flags::Subtract);
 
         sub
@@ -141,9 +151,15 @@ impl MathOps<u16> for Registers {
         let (sum, carry) = x.overflowing_add(y);
         let half_carry = (((x & 0xFFF) + (y & 0xFFF)) & 0x1000) == 0x1000;
 
-        if carry { self.set_flag(Flags::Carry); }
-        if half_carry { self.set_flag(Flags::HalfCarry); }
-        if sum == 0 { self.set_flag(Flags::Zero) }
+        if carry {
+            self.set_flag(Flags::Carry);
+        }
+        if half_carry {
+            self.set_flag(Flags::HalfCarry);
+        }
+        if sum == 0 {
+            self.set_flag(Flags::Zero)
+        }
         self.reset_flag(Flags::Subtract);
 
         sum
@@ -153,9 +169,15 @@ impl MathOps<u16> for Registers {
         let (sub, borrow) = x.overflowing_sub(y);
         let half_borrow = (x & 0xFFF) < (y & 0xFFF); // https://www.reddit.com/r/EmuDev/comments/4clh23/trouble_with_halfcarrycarry_flag/
 
-        if !borrow { self.set_flag(Flags::Carry) }
-        if !half_borrow { self.set_flag(Flags::HalfCarry) }
-        if sub == 0 { self.set_flag(Flags::Zero) }
+        if !borrow {
+            self.set_flag(Flags::Carry)
+        }
+        if !half_borrow {
+            self.set_flag(Flags::HalfCarry)
+        }
+        if sub == 0 {
+            self.set_flag(Flags::Zero)
+        }
         self.set_flag(Flags::Subtract);
 
         sub
@@ -207,7 +229,7 @@ mod register_tests {
 
         register.F = 0b11110000;
         assert_eq!(true, register.read_flag(Flags::Zero));
-        assert_eq! (true, register.read_flag(Flags::Subtract));
+        assert_eq!(true, register.read_flag(Flags::Subtract));
         assert_eq!(true, register.read_flag(Flags::HalfCarry));
         assert_eq!(true, register.read_flag(Flags::Carry));
 
@@ -262,13 +284,12 @@ mod register_tests {
 
     #[test]
     fn should_add_with_carry_and_halfcarry_for_u8() {
-
         let mut register = Registers::default();
 
         let x: u8 = 0b00001111;
         let y: u8 = 0b00000001;
 
-        let sum = register.carrying_add(x,y);
+        let sum = register.carrying_add(x, y);
 
         assert_eq!(sum, 0b00010000);
         assert_eq!(register.read_flag(Flags::Carry), false);
@@ -281,7 +302,7 @@ mod register_tests {
         let x: u8 = 0b11111111;
         let y: u8 = 0b00000001;
 
-        let sum = register.carrying_add(x,y);
+        let sum = register.carrying_add(x, y);
 
         assert_eq!(sum, 0b00000000);
         assert_eq!(register.read_flag(Flags::Carry), true);
@@ -292,13 +313,12 @@ mod register_tests {
 
     #[test]
     fn should_add_with_carry_and_halfcarry_for_u16() {
-
         let mut register = Registers::default();
 
         let x: u16 = 0b0000111111111111;
         let y: u16 = 0b0000000000000001;
 
-        let sum = register.carrying_add(x,y);
+        let sum = register.carrying_add(x, y);
 
         assert_eq!(sum, 0b0001000000000000);
         assert_eq!(register.read_flag(Flags::Carry), false);
@@ -311,7 +331,7 @@ mod register_tests {
         let x: u16 = 0b1111111111111111;
         let y: u16 = 0b0000000000000001;
 
-        let sum = register.carrying_add(x,y);
+        let sum = register.carrying_add(x, y);
 
         assert_eq!(sum, 0b0000000000000000);
         assert_eq!(register.read_flag(Flags::Carry), true);
@@ -322,13 +342,12 @@ mod register_tests {
 
     #[test]
     fn should_sub_with_carry_and_halfcarry_for_u8() {
-
         let mut register = Registers::default();
 
         let x: u8 = 0b00010000;
         let y: u8 = 0b00000001;
 
-        let sub = register.borrowing_sub(x,y);
+        let sub = register.borrowing_sub(x, y);
 
         assert_eq!(sub, 0b00001111);
         assert_eq!(register.read_flag(Flags::Carry), true);
@@ -341,7 +360,7 @@ mod register_tests {
         let x: u8 = 0b00000000;
         let y: u8 = 0b00000001;
 
-        let sub = register.borrowing_sub(x,y);
+        let sub = register.borrowing_sub(x, y);
 
         assert_eq!(sub, 0b11111111);
         assert_eq!(register.read_flag(Flags::Carry), false);
@@ -352,13 +371,12 @@ mod register_tests {
 
     #[test]
     fn should_sub_with_carry_and_halfcarry_for_u16() {
-
         let mut register = Registers::default();
 
         let x: u16 = 0b0001000000000000;
         let y: u16 = 0b0000000000000001;
 
-        let sub = register.borrowing_sub(x,y);
+        let sub = register.borrowing_sub(x, y);
 
         assert_eq!(sub, 0b0000111111111111);
         assert_eq!(register.read_flag(Flags::Carry), true);
@@ -371,7 +389,7 @@ mod register_tests {
         let x: u16 = 0b0000000000000000;
         let y: u16 = 0b0000000000000001;
 
-        let sub = register.borrowing_sub(x,y);
+        let sub = register.borrowing_sub(x, y);
 
         assert_eq!(sub, 0b1111111111111111);
         assert_eq!(register.read_flag(Flags::Carry), false);

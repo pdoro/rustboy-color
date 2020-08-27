@@ -1,25 +1,24 @@
-extern crate chrono;
-//#[macro_use]
-//extern crate clap;
 
-mod utils;
+// Crate modules
+mod soc;
 mod memory;
-mod cpu;
 mod tests;
+mod utils;
+mod cartrigbe;
 
-use cpu::cpu::CPU;
+use chrono;
+use soc::cpu::CPU;
+use log::{debug, error, info};
 use memory::MemorySpace;
-use log::{info, debug, error};
-use std::panic;
+use fern::colors::{Color, ColoredLevelConfig};
 //use clap::App;
 use std::str::FromStr;
 
 fn main() {
-
     //let yaml = load_yaml!("../cli.yaml");
     //let cfg = App::from_yaml(yaml).get_matches();
 
-    let log_level = "trace";//cfg.value_of("verbose").unwrap();
+    let log_level = "trace"; //cfg.value_of("verbose").unwrap();
 
     setup_logger(log_level);
 
@@ -33,11 +32,7 @@ fn main() {
 }
 
 fn setup_logger(level: &str) {
-
-    let level = log::LevelFilter::from_str(level)
-        .expect("Invalid logging level");
-
-    use fern::colors::{Color, ColoredLevelConfig};
+    let level = log::LevelFilter::from_str(level).expect("Invalid logging level");
 
     let colors = ColoredLevelConfig::new()
         .error(Color::Red)

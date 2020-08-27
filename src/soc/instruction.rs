@@ -1,23 +1,33 @@
-
 use std::fmt;
 
 #[derive(Clone, PartialEq)]
 pub enum Operand {
     // Cpu registers
-    A, B, C, D, E, F, H, L,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    H,
+    L,
     // Cpu double registers
-    HL, AF, BC, DE,
+    HL,
+    AF,
+    BC,
+    DE,
     // Special Registers
-    SP, PC,
+    SP,
+    PC,
     // Flags
-    Zero, NoZero, Carry, NoCarry,
+    Zero,
+    NoZero,
+    Carry,
+    NoCarry,
 
-    Bit,
     Word,
     DWord,
     Memory(Box<Operand>, u16),
-
-    FixedValue(u16)
 }
 
 impl fmt::Debug for Operand {
@@ -41,7 +51,7 @@ impl fmt::Debug for Operand {
             Operand::DWord => write!(f, "Imm DWord"),
             Operand::Memory(addr, 0) => write!(f, "({:?})", addr),
             Operand::Memory(addr, offset) => write!(f, "({:?} + 0x{:X})", addr, offset),
-            _ => write!(f, "XXX")
+            _ => write!(f, "XXX"),
         }
     }
 }
@@ -91,7 +101,7 @@ pub enum Instruction {
     JR(Operand, Operand),
     CALL1(Operand),
     CALL(Operand, Operand),
-    RST(Operand),
+    RST(u16),
     RET_,
     RET(Operand),
     RETI,
@@ -103,19 +113,17 @@ pub enum Instruction {
     SLA(Operand),
     SRA(Operand),
     SRL(Operand),
-    BIT(Operand, Operand),
-    SET(Operand, Operand),
-    RES(Operand, Operand),
+    BIT(u8, Operand),
+    SET(u8, Operand),
+    RES(u8, Operand),
 }
 
 impl From<u8> for Instruction {
     fn from(opcode: u8) -> Self {
-
         use super::instruction::Instruction::*;
         use super::instruction::Operand::*;
 
         match opcode {
-
             // --------------- 8 bit LOAD ---------------
 
             // LD nn,n
@@ -134,94 +142,94 @@ impl From<u8> for Instruction {
             0x7B => LD8(A, E),
             0x7C => LD8(A, H),
             0x7D => LD8(A, L),
-            0x7E => LD8(A, Memory( Box::new(HL), 0 )),
+            0x7E => LD8(A, Memory(Box::new(HL), 0)),
             0x40 => LD8(B, B),
             0x41 => LD8(B, C),
             0x42 => LD8(B, D),
             0x43 => LD8(B, E),
             0x44 => LD8(B, H),
             0x45 => LD8(B, L),
-            0x46 => LD8(B, Memory( Box::new(HL), 0 )),
+            0x46 => LD8(B, Memory(Box::new(HL), 0)),
             0x48 => LD8(C, B),
             0x49 => LD8(C, C),
             0x4A => LD8(C, D),
             0x4B => LD8(C, E),
             0x4C => LD8(C, H),
             0x4D => LD8(C, L),
-            0x4E => LD8(C, Memory( Box::new(HL), 0 )),
+            0x4E => LD8(C, Memory(Box::new(HL), 0)),
             0x50 => LD8(D, B),
             0x51 => LD8(D, C),
             0x52 => LD8(D, D),
             0x53 => LD8(D, E),
             0x54 => LD8(D, H),
             0x55 => LD8(D, L),
-            0x56 => LD8(D, Memory( Box::new(HL), 0 )),
+            0x56 => LD8(D, Memory(Box::new(HL), 0)),
             0x58 => LD8(E, B),
             0x59 => LD8(E, C),
             0x5A => LD8(E, D),
             0x5B => LD8(E, E),
             0x5C => LD8(E, H),
             0x5D => LD8(E, L),
-            0x5E => LD8(E, Memory( Box::new(HL), 0 )),
+            0x5E => LD8(E, Memory(Box::new(HL), 0)),
             0x60 => LD8(H, B),
             0x61 => LD8(H, C),
             0x62 => LD8(H, D),
             0x63 => LD8(H, E),
             0x64 => LD8(H, H),
             0x65 => LD8(H, L),
-            0x66 => LD8(H, Memory( Box::new(HL), 0 )),
+            0x66 => LD8(H, Memory(Box::new(HL), 0)),
             0x68 => LD8(L, B),
             0x69 => LD8(L, C),
             0x6A => LD8(L, D),
             0x6B => LD8(L, E),
             0x6C => LD8(L, H),
             0x6D => LD8(L, L),
-            0x6E => LD8(L, Memory( Box::new(HL), 0 )),
-            0x70 => LD8(Memory( Box::new(HL), 0 ), B),
-            0x71 => LD8(Memory( Box::new(HL), 0 ), C),
-            0x72 => LD8(Memory( Box::new(HL), 0 ), D),
-            0x73 => LD8(Memory( Box::new(HL), 0 ), E),
-            0x74 => LD8(Memory( Box::new(HL), 0 ), H),
-            0x75 => LD8(Memory( Box::new(HL), 0 ), L),
-            0x36 => LD8(Memory( Box::new(HL), 0), Word),
+            0x6E => LD8(L, Memory(Box::new(HL), 0)),
+            0x70 => LD8(Memory(Box::new(HL), 0), B),
+            0x71 => LD8(Memory(Box::new(HL), 0), C),
+            0x72 => LD8(Memory(Box::new(HL), 0), D),
+            0x73 => LD8(Memory(Box::new(HL), 0), E),
+            0x74 => LD8(Memory(Box::new(HL), 0), H),
+            0x75 => LD8(Memory(Box::new(HL), 0), L),
+            0x36 => LD8(Memory(Box::new(HL), 0), Word),
 
             // LD A,n
-            0x0A => LD8( A, Memory( Box::new(BC), 0 )),
-            0x1A => LD8( A, Memory( Box::new(DE), 0 )),
-            0xFA => LD8( A, Memory( Box::new(DWord), 0 )),
+            0x0A => LD8(A, Memory(Box::new(BC), 0)),
+            0x1A => LD8(A, Memory(Box::new(DE), 0)),
+            0xFA => LD8(A, Memory(Box::new(DWord), 0)),
             //0x3E => LD(A,self.register. # )
 
             // LD n,A
-            0x47 => LD8( B, A),
-            0x4F => LD8( C, A),
-            0x57 => LD8( D, A),
-            0x5F => LD8( E, A),
-            0x67 => LD8( H, A),
-            0x6F => LD8( L, A),
-            0x02 => LD8( Memory( Box::new(B), 0 ), A),
-            0x12 => LD8( Memory( Box::new(DE), 0 ), A),
-            0x77 => LD8( Memory( Box::new(HL), 0 ), A),
-            0xEA => LD8( Memory( Box::new(DWord), 0 ), A),
+            0x47 => LD8(B, A),
+            0x4F => LD8(C, A),
+            0x57 => LD8(D, A),
+            0x5F => LD8(E, A),
+            0x67 => LD8(H, A),
+            0x6F => LD8(L, A),
+            0x02 => LD8(Memory(Box::new(B), 0), A),
+            0x12 => LD8(Memory(Box::new(DE), 0), A),
+            0x77 => LD8(Memory(Box::new(HL), 0), A),
+            0xEA => LD8(Memory(Box::new(DWord), 0), A),
 
             // LD A,(C)
-            0xF2 => LD8( A, Memory( Box::new(C), 0xFF00)),
+            0xF2 => LD8(A, Memory(Box::new(C), 0xFF00)),
             // LD (C),A
-            0xE2 => LD8( Memory(Box::new(C), 0xFF00),A),
+            0xE2 => LD8(Memory(Box::new(C), 0xFF00), A),
 
             // LDD A,(HL)
-            0x3A => LDD(A, Memory( Box::new(HL), 0 )),
+            0x3A => LDD(A, Memory(Box::new(HL), 0)),
             // LDD (HL),A
-            0x32 => LDD(Memory( Box::new(HL), 0 ), A),
+            0x32 => LDD(Memory(Box::new(HL), 0), A),
 
             // LDI A,(HL)
-            0x2A => LDI(A, Memory( Box::new(HL), 0 )),
+            0x2A => LDI(A, Memory(Box::new(HL), 0)),
             // LDI (HL),A
-            0x22 => LDI(Memory( Box::new(HL), 0 ), A),
+            0x22 => LDI(Memory(Box::new(HL), 0), A),
 
             // LDH (n),A
-            0xE0 => LDH(Memory(Box::new(Word), 0xFF00 ), A),
+            0xE0 => LDH(Memory(Box::new(Word), 0xFF00), A),
             // LDH A,(n)
-            0xF0 => LDH(A, Memory(Box::new(Word), 0xFF00 )),
+            0xF0 => LDH(A, Memory(Box::new(Word), 0xFF00)),
 
             // --------------- 16 bit LOAD ---------------
 
@@ -267,14 +275,14 @@ impl From<u8> for Instruction {
             0x87 => ADD8(A, A),
 
             // ADC A,n
-            0x8F => ADC(A,A),
-            0x88 => ADC(A,B),
-            0x89 => ADC(A,C),
-            0x8A => ADC(A,D),
-            0x8B => ADC(A,E),
-            0x8C => ADC(A,H),
-            0x8D => ADC(A,L),
-            0x8E => ADC(A,Memory(Box::new(HL), 0)),
+            0x8F => ADC(A, A),
+            0x88 => ADC(A, B),
+            0x89 => ADC(A, C),
+            0x8A => ADC(A, D),
+            0x8B => ADC(A, E),
+            0x8C => ADC(A, H),
+            0x8D => ADC(A, L),
+            0x8E => ADC(A, Memory(Box::new(HL), 0)),
             0xC6 => ADC(A, Word),
 
             // SUB n
@@ -289,14 +297,14 @@ impl From<u8> for Instruction {
             0xD6 => SUB(Word),
 
             // SBC A,n
-            0x9F => SBC(A,A),
-            0x98 => SBC(A,B),
-            0x99 => SBC(A,C),
-            0x9A => SBC(A,D),
-            0x9B => SBC(A,E),
-            0x9C => SBC(A,H),
-            0x9D => SBC(A,L),
-            0x9E => SBC(A,Memory(Box::new(HL), 0)),
+            0x9F => SBC(A, A),
+            0x98 => SBC(A, B),
+            0x99 => SBC(A, C),
+            0x9A => SBC(A, D),
+            0x9B => SBC(A, E),
+            0x9C => SBC(A, H),
+            0x9D => SBC(A, L),
+            0x9E => SBC(A, Memory(Box::new(HL), 0)),
             //0x?? => SBC(A, Word),
 
             // AND n
@@ -366,13 +374,13 @@ impl From<u8> for Instruction {
             // --------------- 16-Bit Arithmetic ---------------
 
             // ADD HL,n
-            0x09 => ADD16(HL,BC),
-            0x19 => ADD16(HL,DE),
-            0x29 => ADD16(HL,HL),
-            0x39 => ADD16(HL,SP),
+            0x09 => ADD16(HL, BC),
+            0x19 => ADD16(HL, DE),
+            0x29 => ADD16(HL, HL),
+            0x39 => ADD16(HL, SP),
 
             // ADD SP,n
-            0xE8 => ADD16(SP,Word),
+            0xE8 => ADD16(SP, Word),
 
             // INC nn
             0x03 => INC16(BC),
@@ -398,7 +406,6 @@ impl From<u8> for Instruction {
             // 0x1000 => STOP,
 
             // --------------- Rotates & Shifts ---------------
-
             0x07 => RLCA,
             0x17 => RLA,
             0x0F => RRCA,
@@ -427,7 +434,6 @@ impl From<u8> for Instruction {
             0x38 => JR(Carry, DWord),
 
             // --------------- Calls ---------------
-
             0xCD => CALL1(DWord),
 
             // CALL cc,n
@@ -437,18 +443,16 @@ impl From<u8> for Instruction {
             0xDC => CALL(Carry, DWord),
 
             // --------------- Restarts ---------------
-
-            0xC7 => RST(FixedValue(0x0000 + 00)),
-            0xCF => RST(FixedValue(0x0000 + 08)),
-            0xD7 => RST(FixedValue(0x0000 + 10)),
-            0xDF => RST(FixedValue(0x0000 + 18)),
-            0xE7 => RST(FixedValue(0x0000 + 20)),
-            0xEF => RST(FixedValue(0x0000 + 28)),
-            0xF7 => RST(FixedValue(0x0000 + 30)),
-            0xFF => RST(FixedValue(0x0000 + 38)),
+            0xC7 => RST(0x0000),
+            0xCF => RST(0x0008),
+            0xD7 => RST(0x0010),
+            0xDF => RST(0x0018),
+            0xE7 => RST(0x0020),
+            0xEF => RST(0x0028),
+            0xF7 => RST(0x0030),
+            0xFF => RST(0x0038),
 
             // --------------- Returns ---------------
-
             0xC9 => RET_,
 
             // RET cc
@@ -458,8 +462,8 @@ impl From<u8> for Instruction {
             0xD8 => RET(Carry),
 
             0xD9 => RETI,
-            
-            _ => NOP
+
+            _ => NOP,
         }
     }
 }
@@ -470,7 +474,6 @@ impl From<u16> for Instruction {
         use super::instruction::Operand::*;
 
         match opcode {
-
             // SWAP n
             0xCB37 => SWAP(A),
             0xCB30 => SWAP(B),
@@ -554,36 +557,112 @@ impl From<u16> for Instruction {
             // Bit Opcodes
 
             // BIT b,r
-            0xCB47 => BIT(Bit, A),
-            0xCB40 => BIT(Bit, B),
-            0xCB41 => BIT(Bit, C),
-            0xCB42 => BIT(Bit, D),
-            0xCB43 => BIT(Bit, E),
-            0xCB44 => BIT(Bit, H),
-            0xCB45 => BIT(Bit, L),
-            0xCB46 => BIT(Bit, Memory(Box::new(HL), 0)),
+            0xCB40 | 0xCB48 | 0xCB50 | 0xCB58 | 0xCB60 | 0xCB68 | 0xCB70 | 0xCB78 => {
+                let bit = nth_bit(opcode, 0xCB41);
+                BIT(bit, B)
+            }
+            0xCB41 | 0xCB49 | 0xCB51 | 0xCB59 | 0xCB61 | 0xCB69 | 0xCB71 | 0xCB79 => {
+                let bit = nth_bit(opcode, 0xCB41);
+                BIT(bit, C)
+            }
+            0xCB42 | 0xCB4A | 0xCB52 | 0xCB5A | 0xCB62 | 0xCB6A | 0xCB72 | 0xCB7A => {
+                let bit = nth_bit(opcode, 0xCB42);
+                BIT(bit, D)
+            }
+            0xCB43 | 0xCB4B | 0xCB53 | 0xCB5B | 0xCB63 | 0xCB6B | 0xCB73 | 0xCB7B => {
+                let bit = nth_bit(opcode, 0xCB43);
+                BIT(bit, E)
+            }
+            0xCB44 | 0xCB4C | 0xCB54 | 0xCB5C | 0xCB64 | 0xCB6C | 0xCB74 | 0xCB7C => {
+                let bit = nth_bit(opcode, 0xCB44);
+                BIT(bit, H)
+            }
+            0xCB45 | 0xCB4D | 0xCB55 | 0xCB5D | 0xCB65 | 0xCB6D | 0xCB75 | 0xCB7D => {
+                let bit = nth_bit(opcode, 0xCB45);
+                BIT(bit, L)
+            }
+            0xCB46 | 0xCB4E | 0xCB56 | 0xCB5E | 0xCB66 | 0xCB6E | 0xCB76 | 0xCB7E => {
+                let bit = nth_bit(opcode, 0xCB46);
+                BIT(bit, Memory(Box::new(HL), 0))
+            }
+            0xCB47 | 0xCB4F | 0xCB57 | 0xCB5F | 0xCB67 | 0xCB6F | 0xCB77 | 0xCB7F => {
+                let bit = nth_bit(opcode, 0xCB47);
+                BIT(bit, A)
+            }
 
-            // SET b,r
-            0xCBC7 => SET(Bit, A),
-            0xCBC0 => SET(Bit, B),
-            0xCBC1 => SET(Bit, C),
-            0xCBC2 => SET(Bit, D),
-            0xCBC3 => SET(Bit, E),
-            0xCBC4 => SET(Bit, H),
-            0xCBC5 => SET(Bit, L),
-            0xCBC6 => SET(Bit, Memory(Box::new(HL), 0)),
+            ////////////////////////////////////////////////////////////////////////////
+            0xCBC7 | 0xCBCF | 0xCBD7 | 0xCBDF | 0xCBE7 | 0xCBEF | 0xCBF7 | 0xCBFF => {
+                let bit = nth_bit(opcode, 0xCBC7);
+                SET(bit, A)
+            }
+            0xCBC0 | 0xCBC8 | 0xCBD0 | 0xCBD8 | 0xCBE0 | 0xCBE8 | 0xCBF0 | 0xCBF8 => {
+                let bit = nth_bit(opcode, 0xCBC0);
+                SET(bit, B)
+            }
+            0xCBC1 | 0xCBC9 | 0xCBD1 | 0xCBD9 | 0xCBE1 | 0xCBE9 | 0xCBF1 | 0xCBF9 => {
+                let bit = nth_bit(opcode, 0xCBC1);
+                SET(bit, C)
+            }
+            0xCBC2 | 0xCBCA | 0xCBD2 | 0xCBDA | 0xCBE2 | 0xCBEA | 0xCBF2 | 0xCBFA => {
+                let bit = nth_bit(opcode, 0xCBC2);
+                SET(bit, D)
+            }
+            0xCBC3 | 0xCBCB | 0xCBD3 | 0xCBDB | 0xCBE3 | 0xCBEB | 0xCBF3 | 0xCBFB => {
+                let bit = nth_bit(opcode, 0xCBC3);
+                SET(bit, E)
+            }
+            0xCBC4 | 0xCBCC | 0xCBD4 | 0xCBDC | 0xCBE4 | 0xCBEC | 0xCBF4 | 0xCBFC => {
+                let bit = nth_bit(opcode, 0xCBC4);
+                SET(bit, H)
+            }
+            0xCBC5 | 0xCBCD | 0xCBD5 | 0xCBDD | 0xCBE5 | 0xCBED | 0xCBF5 | 0xCBFD => {
+                let bit = nth_bit(opcode, 0xCBC5);
+                SET(bit, L)
+            }
+            0xCBC6 | 0xCBCE | 0xCBD6 | 0xCBDE | 0xCBE6 | 0xCBEE | 0xCBF6 | 0xCBFE => {
+                let bit = nth_bit(opcode, 0xCBC6);
+                SET(bit, Memory(Box::new(HL), 0))
+            }
 
             // RES b,r
-            0xCB87 => RES(Bit, A),
-            0xCB80 => RES(Bit, B),
-            0xCB81 => RES(Bit, C),
-            0xCB82 => RES(Bit, D),
-            0xCB83 => RES(Bit, E),
-            0xCB84 => RES(Bit, H),
-            0xCB85 => RES(Bit, L),
-            0xCB86 => RES(Bit, Memory(Box::new(HL), 0)),
+            0xCB87 | 0xCB8F | 0xCB97 | 0xCB9F | 0xCBA7 | 0xCBAF | 0xCBB7 | 0xCBBF => {
+                let bit = nth_bit(opcode, 0xCB87);
+                RES(bit, A)
+            }
+            0xCB80 | 0xCB88 | 0xCB90 | 0xCB98 | 0xCBA0 | 0xCBA8 | 0xCBB0 | 0xCBB8 => {
+                let bit = nth_bit(opcode, 0xCB80);
+                RES(bit, B)
+            }
+            0xCB81 | 0xCB89 | 0xCB91 | 0xCB99 | 0xCBA1 | 0xCBA9 | 0xCBB1 | 0xCBB9 => {
+                let bit = nth_bit(opcode, 0xCB81);
+                RES(bit, C)
+            }
+            0xCB82 | 0xCB8A | 0xCB92 | 0xCB9A | 0xCBA2 | 0xCBAA | 0xCBB2 | 0xCBBA => {
+                let bit = nth_bit(opcode, 0xCB82);
+                RES(bit, D)
+            }
+            0xCB83 | 0xCB8B | 0xCB93 | 0xCB9B | 0xCBA3 | 0xCBAB | 0xCBB3 | 0xCBBB => {
+                let bit = nth_bit(opcode, 0xCB83);
+                RES(bit, E)
+            }
+            0xCB84 | 0xCB8C | 0xCB94 | 0xCB9C | 0xCBA4 | 0xCBAC | 0xCBB4 | 0xCBBC => {
+                let bit = nth_bit(opcode, 0xCB84);
+                RES(bit, H)
+            }
+            0xCB85 | 0xCB8D | 0xCB95 | 0xCB9D | 0xCBA5 | 0xCBAD | 0xCBB5 | 0xCBBD => {
+                let bit = nth_bit(opcode, 0xCB85);
+                RES(bit, L)
+            }
+            0xCB86 | 0xCB8E | 0xCB96 | 0xCB9E | 0xCBA6 | 0xCBAE | 0xCBB6 | 0xCBBE => {
+                let bit = nth_bit(opcode, 0xCB86);
+                RES(bit, Memory(Box::new(HL), 0))
+            }
 
-            _ => NOP
+            _ => NOP,
         }
     }
+}
+
+const fn nth_bit(opcode: u16, base: u16) -> u8 {
+    ((opcode - base) / 8) as u8
 }
