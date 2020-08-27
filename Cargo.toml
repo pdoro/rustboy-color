@@ -5,10 +5,10 @@ authors = ["pdoro <pablo.doro92@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-log = "0.4"
-fern = { version = "0.5", features = ["colored"] }
-chrono = "0.4"
-#clap = "3.0.0"
+log = "0.4.8"
+fern = { version = "0.5.9", features = ["colored"] }
+chrono = "0.4.10"
+#clap = {version = "~2.32.0", features = ["yaml"]}
 
 #amethyst = "0.13.2"
 
