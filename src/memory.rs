@@ -1,21 +1,19 @@
-use crate::cartrigbe::{Cartrigbe, MemoryBankController};
+use crate::cartridge::Cartridge;
 use log::{debug, info, trace};
 use std::ops::Range;
 use std::{fmt, ops};
 
 type Address = u16;
 type Byte = u8;
+type MemoryArea = Range<Address>;
 
 pub struct MemorySpace {
     space: [u8; 65_536],
-
-    // Cartrigbe Data 0x0000 .. 0x8000
-    // Cartrigbe RAM  0xC000 .. 0xE000
-    cartrigbe: Cartrigbe,
+    cartridge: Box<Cartrigbe>,
 }
 
 impl MemorySpace {
-    pub fn new(cartrigbe: Cartrigbe) -> MemorySpace {
+    pub fn new(cartridge: Cartridge) -> MemorySpace {
 
         let mut space = [0; 65_536];
         let copy_range = CartridgeRam_RANGE.start..data.len();
@@ -23,11 +21,11 @@ impl MemorySpace {
 
         MemorySpace {
             space,
-            cartrigbe
+            cartridge
         }
     }
 
-    pub fn cartbridgeIsMapped(&self) -> bool {
+    pub fn cartridge_is_mapped(&self) -> bool {
         self[0xFF50] == 1
     }
 }
@@ -36,18 +34,18 @@ const MEMORY_START: Address = 0x0000;
 const MEMORY_END: Address = 0xFFFF;
 
 // http://gameboy.mongenel.com/dmg/asmmemmap.html
-const InterruptVector_RANGE: Range<Address> = 0x0000..0x00FF;
-const CartridgeRom_RANGE: Range<Address> = 0x0100..0x07FF;
-const TileRam_RANGE: Range<Address> = 0x8000..0x97FF;
-const BackgroundMap_RANGE: Range<Address> = 0x9800..0x9FFF;
-const CartridgeRam_RANGE: Range<Address> = 0xA000..0xBFFF;
-const WorkingRam_RANGE: Range<Address> = 0x8000..0x00FF;
-const EchoRam_RANGE: Range<Address> = 0x8000..0x00FF;
-const ObjectAttributeMemory_RANGE: Range<Address> = 0x8000..0x00FF;
-const Unmapped_RANGE: Range<Address> = 0x8000..0x00FF;
-const IORegisters_RANGE: Range<Address> = 0x8000..0x00FF;
-const HighRam_RANGE: Range<Address> = 0x8000..0x00FF;
-const InterruptEnabledRegister_RANGE: Range<Address> = 0x8000..0x00FF;
+const InterruptEnabledFlag_RANGE: MemoryArea  = 0xFFFF..0xFFFF;
+const HighRam_RANGE: MemoryArea               = 0xFF80..0xFFFE;
+const IORegisters_RANGE: MemoryArea           = 0xFF00..0xFF7F;
+const Unmapped_RANGE: MemoryArea              = 0xFEA0..0xFEFF;
+const ObjectAttributeMemory_RANGE: MemoryArea = 0xFE00..0xFE9F;
+const EchoRam_RANGE: MemoryArea               = 0xE000..0xFDFF;
+const WorkingRam_RANGE: MemoryArea            = 0xC000..0xCFFF;
+const CartridgeRam_RANGE: MemoryArea          = 0xA000..0xBFFF;
+const BackgroundMap_RANGE: MemoryArea         = 0x9800..0x9FFF;
+const TileRam_RANGE: MemoryArea               = 0x8000..0x97FF;
+const CartridgeRom_RANGE: MemoryArea          = 0x0100..0x07FF;
+const InterruptVector_RANGE: MemoryArea       = 0x0000..0x00FF;
 
 impl ops::Index<Address> for MemorySpace {
     type Output = Byte;
@@ -61,8 +59,8 @@ impl ops::Index<Address> for MemorySpace {
             match address as usize {
                 InterruptVector_RANGE => &self.space[address],
                 CartridgeRom_RANGE => {
-                    if self.cartbridgeIsMapped() {
-                        &self.cartrigbe.read(address)
+                    if self.cartridge_is_mapped() {
+                        &self.cartrigbe[address]
                     } else {
                         // Boot Rom
                         &self[address]
@@ -70,14 +68,14 @@ impl ops::Index<Address> for MemorySpace {
                 }
                 TileRam_RANGE => &self.space[address],
                 BackgroundMap_RANGE => {}
-                CartridgeRam_RANGE => &self.cartrigbe.read(address),
+                CartridgeRam_RANGE => &self.cartrigbe[address],
                 WorkingRam_RANGE => &self.internal_ram[address],
                 EchoRam_RANGE => &self.echo_ram[address],
                 ObjectAttributeMemory_RANGE => {}
                 Unmapped_RANGE => {}
                 IORegisters_RANGE => {}
                 HighRam_RANGE => &self.space[address],
-                InterruptEnabledRegister_RANGE => {}
+                InterruptEnabledFlag_RANGE => {}
                 _ => panic!("Address {:#X} does not belong to memory space, cannot map to area", address),
             }
         }
