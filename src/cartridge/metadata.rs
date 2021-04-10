@@ -1,5 +1,9 @@
 
 use log::{debug, info, trace};
+use std::collections::HashMap;
+use crate::cartridge::cartridge::Cartridge;
+use core::ops;
+use phf::phf_map;
 
 pub enum CartridgeType {
     RomOnly = 0x00,
@@ -32,173 +36,171 @@ pub enum CartridgeType {
     HuC1RamBattery = 0xFF,
 }
 
-const LICENSE_CODES: HashMap<u8, &str> = vec![
-    (00, "none"),
-    (01, "Nintendo R&D1"),
-    (08, "Capcom"),
-    (13, "Electronic Arts"),
-    (18, "Hudson Soft"),
-    (19, "b-ai"),
-    (20, "kss"),
-    (22, "pow"),
-    (24, "PCM Complete"),
-    (25, "san-x"),
-    (28, "Kemco Japan"),
-    (29, "seta"),
-    (30, "Viacom"),
-    (31, "Nintendo"),
-    (32, "Bandai"),
-    (33, "Ocean/Acclaim"),
-    (34, "Konami"),
-    (35, "Hector"),
-    (37, "Taito"),
-    (38, "Hudson"),
-    (39, "Banpresto"),
-    (41, "UbiSoft"),
-    (42, "Atlus"),
-    (44, "Malibu"),
-    (46, "angel"),
-    (47, "Bullet-Proof"),
-    (49, "irem"),
-    (50, "Absolute"),
-    (51, "Acclaim"),
-    (52, "Activision"),
-    (53, "American sammy"),
-    (54, "Konami"),
-    (55, "Hi tech entertainment"),
-    (56, "LJN"),
-    (57, "Matchbox"),
-    (58, "Mattel"),
-    (59, "Milton Bradley"),
-    (60, "Titus"),
-    (61, "Virgin"),
-    (64, "LucasArts"),
-    (67, "Ocean"),
-    (69, "Electronic Arts"),
-    (70, "Infogrames"),
-    (71, "Interplay"),
-    (72, "Broderbund"),
-    (73, "sculptured"),
-    (75, "sci"),
-    (78, "THQ"),
-    (79, "Accolade"),
-    (80, "misawa"),
-    (83, "lozc"),
-    (86, "tokuma shoten i*"),
-    (87, "tsukuda ori*"),
-    (91, "Chunsoft"),
-    (92, "Video system"),
-    (93, "Ocean/Acclaim"),
-    (95, "Varie"),
-    (96, "Yonezawa/s'pal"),
-    (97, "Kaneko"),
-    (99, "Pack in soft")
-    //(A4, "Konami (Yu-Gi-Oh!)"),
-].into_iter().collect();
+// TODO check someday if I can extract the metadata methods to its own
+// trait and give a default impl for dyn Cartridge or even ops::Index
+// pub trait Metadata {
+//     fn cgb_flag(&self) -> bool;
+// }
+//
+// impl Metadata for dyn Cartridge {
+//
+//     fn cgb_flag(&self) -> bool {
+//         match self[0x0143] {
+//             0x80 => false,
+//             0xC0 => true,
+//             _ => panic!()
+//         }
+//     }
+// }
 
-pub struct HeaderMetadata {
-    pub title: str,
-    pub manufacturer_code: str,
-    pub cgb_flag: bool,
-    pub new_license_code: str,
-    pub sgb_flag: bool,
-    pub cartridge_type: CartridgeType,
-    pub rom_banks: u8,
-    pub ram_size: u16,
-    pub destination_code: str,
-    pub old_license_code: str,
-    pub version_number: str,
-    pub checksum: u8,
-    pub global_checksum: u16
-}
-
-impl HeaderMetadata {
-
-    pub fn new(header: &[u8]) -> HeaderMetadata {
-        HeaderMetadata {
-            title: title(header[0x0134..0x0143]),
-            manufacturer_code: manufacturer_code(header[0x013F..0x0142]),
-            cgb_flag: cgb_flag(header[0x0143]),
-            new_license_code: new_license_code(header[0x0144..0x0145]),
-            sgb_flag: sgb_flag(header[0x0146]),
-            cartridge_type: cartridge_type(header[0x0147]),
-            rom_banks: rom_banks(header[0x0148]),
-            ram_size: ram_size(header[0x0149]),
-            destination_code: destination_code(header[0x014A]),
-            old_license_code: old_license_code(header[0x14B]),
-            version_number: version_number(header[0x014C]),
-            checksum: header[0x014D],
-            global_checksum: header[0x014E..0x014F]
-        }
-    }
-}
-
-fn title(slice: &[u8]) -> &str {
-    unimplemented!()
-}
-
-fn sgb_flag(flag: u8) -> bool {
-    match flag {
-        0x00 => false,
-        0x03 => true,
-        _ => {}
-    }
-}
-
-fn cgb_flag(flag: u8) -> bool {
-    match flag {
-        0x80 => false, // TODO
-        0xC0 => true,
-        _ => {}
-    }
-}
-
-fn rom_banks(data: u8) -> u8 {
-    match data{
-        0x00 => 0,
-        0x01 => 4,
-        0x02 => 8,
-        0x03 => 16,
-        0x04 => 32,
-        0x05 => 64,
-        0x06 => 128,
-        0x07 => 256,
-        0x08 => 512,
-        0x52 => 72,
-        0x53 => 80,
-        0x54 => 96,
-        _ => {}
-    }
-}
-
-fn ram_size(data: u8) -> u16 {
-    match data {
-        0x00 => 0,
-        0x01 => 2048,
-        0x02 => 8192,
-        0x03 => 32_768,
-        0x04 => 131_072,
-        0x05 => 65_536,
-        _ => {}
-    }
-}
-
-fn manufacturer_code(data: u8) -> &str {
-    unimplemented!()
-}
-
-fn destination_code(data: u8) -> &str {
-    match data {
-        0x00 => "Japanese",
-        0x01 => "Non-Japanese",
-        _ => {}
-    }
-}
-
-fn old_license_code(data: u8) -> &str {
-    unimplemented!()
-}
-
-fn version_number(data: u8) -> &str {
-    unimplemented!()
-}
+// impl dyn Cartridge<Output = u8> {
+//
+//     fn title(&self) -> &str {
+//
+//     }
+//
+//     fn manufacturer_code(&self) -> &str {
+//
+//     }
+//
+//     fn cgb_flag(&self) -> bool {
+//         match self[0x0143] {
+//             0x80 => false,
+//             0xC0 => true,
+//             _ => panic!()
+//         }
+//     }
+//
+//     fn new_license_code(&self) -> &str {
+// 0x00 => "none",
+// 0x01 => "Nintendo R&D1",
+// 0x08 => "Capcom",
+// 0x13 => "Electronic Arts",
+// 0x18 => "Hudson Soft",
+// 0x19 => "b-ai",
+// 0x20 => "kss",
+// 0x22 => "pow",
+// 0x24 => "PCM Complete",
+// 0x25 => "san-x",
+// 0x28 => "Kemco Japan",
+// 0x29 => "seta",
+// 0x30 => "Viacom",
+// 0x31 => "Nintendo",
+// 0x32 => "Bandai",
+// 0x33 => "Ocean/Acclaim",
+// 0x34 => "Konami",
+// 0x35 => "Hector",
+// 0x37 => "Taito",
+// 0x38 => "Hudson",
+// 0x39 => "Banpresto",
+// 0x41 => "UbiSoft",
+// 0x42 => "Atlus",
+// 0x44 => "Malibu",
+// 0x46 => "angel",
+// 0x47 => "Bullet-Proof",
+// 0x49 => "irem",
+// 0x50 => "Absolute",
+// 0x51 => "Acclaim",
+// 0x52 => "Activision",
+// 0x53 => "American sammy",
+// 0x54 => "Konami",
+// 0x55 => "Hi tech entertainment",
+// 0x56 => "LJN",
+// 0x57 => "Matchbox",
+// 0x58 => "Mattel",
+// 0x59 => "Milton Bradley",
+// 0x60 => "Titus",
+// 0x61 => "Virgin",
+// 0x64 => "LucasArts",
+// 0x67 => "Ocean",
+// 0x69 => "Electronic Arts",
+// 0x70 => "Infogrames",
+// 0x71 => "Interplay",
+// 0x72 => "Broderbund",
+// 0x73 => "sculptured",
+// 0x75 => "sci",
+// 0x78 => "THQ",
+// 0x79 => "Accolade",
+// 0x80 => "misawa",
+// 0x83 => "lozc",
+// 0x86 => "tokuma shoten i*",
+// 0x87 => "tsukuda ori*",
+// 0x91 => "Chunsoft",
+// 0x92 => "Video system",
+// 0x93 => "Ocean/Acclaim",
+// 0x95 => "Varie",
+// 0x96 => "Yonezawa/s'pal",
+// 0x97 => "Kaneko",
+// 0x99 => "Pack in soft",
+// 0xA4, "Konami (Yu-Gi-Oh!)",
+//
+//     }
+//
+//     fn sgb_flag(&self) -> bool {
+//         match self[0x0146] {
+//             0x00 => false,
+//             0x03 => true,
+//             _ => panic!()
+//         }
+//     }
+//
+//     fn cartridge_type(&self) -> CartridgeType {
+//
+//     }
+//
+//     fn rom_banks(&self) -> u8 {
+//         match self[0x0148] {
+//             0x00 => 0,
+//             0x01 => 4,
+//             0x02 => 8,
+//             0x03 => 16,
+//             0x04 => 32,
+//             0x05 => 64,
+//             0x06 => 128,
+//             0x07 => 256,
+//             0x08 => 512,
+//             0x52 => 72,
+//             0x53 => 80,
+//             0x54 => 96,
+//             _ => panic!()
+//         }
+//     }
+//
+//     fn ram_size(&self) -> u16 {
+//         match self[0x0149] {
+//             0x00 => 0,
+//             0x01 => 2048,
+//             0x02 => 8192,
+//             0x03 => 32_768,
+//             0x04 => 131_072,
+//             0x05 => 65_536,
+//             _ => panic!()
+//         }
+//     }
+//
+//     fn destination_code(&self) -> &str {
+//         match self[0x014A] {
+//             0x00 => "Japanese",
+//             0x01 => "Non-Japanese",
+//             _ => {}
+//         }
+//     }
+//
+//     fn old_license_code(&self) -> &str {
+//
+//     }
+//
+//     fn version_number(&self) -> &str {
+//
+//     }
+//
+//     fn checksum(&self) -> u8 {
+//         match self[0x014D] {
+//
+//         }
+//     }
+//
+//     fn global_checksum(&self) -> u16 {
+//
+//     }
+// }

@@ -3,17 +3,20 @@ use crate::soc::instruction::{Instruction, Instruction::*, Operand, Operand::*};
 use crate::soc::register::{Flags, MathOps, Registers};
 use crate::utils::{as_u16, hilo};
 use log::{debug, info, trace};
+use std::ops::Range;
 
 type OpCode = u8;
+const HIGH_RAM: Range<u16> = 0xFF80..0xFFFE;
 
-#[derive(Debug)]
+// #[derive(Debug)] TODO impl Debug manually
 pub struct CPU {
     pub register: Registers,
     pub memory: MemorySpace,
     pub cycle: u32,
     pub halted: bool,
     pub stopped: bool,
-    pub interrupts_enabled: bool,
+
+    pub high_ram: [u8; 126],
 }
 
 impl CPU {
@@ -24,9 +27,9 @@ impl CPU {
             cycle: 0,
             halted: false,
             stopped: false,
-            interrupts_enabled: true,
+            high_ram: [0; 126]
         };
-        debug!("CPU initialized. {:#?}", cpu);
+        debug!("CPU initialized"); // TODO add debug cpu
         cpu
     }
 
@@ -460,10 +463,12 @@ impl CPU {
             }
             // TODO why unreachable pattern???
             DI => {
-                self.interrupts_enabled = false;
+                // TODO
+                // self.interrupts_enabled = false;
             }
             EI => {
-                self.interrupts_enabled = true;
+                // TODO
+                // self.interrupts_enabled = true;
             }
         }
     }
@@ -517,9 +522,19 @@ impl ReadWrite<u8> for CPU {
             H => self.register.H,
             L => self.register.L,
             Memory(addr, offset) => {
-                self.cycle += 4;
                 let address: u16 = self.read(*addr);
-                self.memory[address + offset]
+                let address = address + offset;
+
+                match address {
+                    address if HIGH_RAM.contains(&address) => {
+                        self.high_ram[ (address - 0xFF80) as usize ]
+                    }
+                    0xFFFF => self.register.IR,
+                    _ => {
+                        self.cycle += 4;
+                        self.memory[address + offset]
+                    }
+                }
             }
             Word => {
                 let data = self.memory[self.register.PC];
@@ -527,7 +542,7 @@ impl ReadWrite<u8> for CPU {
                 self.cycle += 4;
                 data
             }
-            _ => panic!("Invalid operand {:?} to read word", operand),
+            _ => panic!("Cannot read word from operand {:?}", operand),
         };
 
         trace!("Read word {:#X} from operand {:?}", word, op);
@@ -547,9 +562,19 @@ impl ReadWrite<u8> for CPU {
             H => self.register.H = data,
             L => self.register.L = data,
             Memory(addr, offset) => {
-                self.cycle += 4;
                 let address: u16 = self.read(*addr);
-                self.memory[address + offset] = data;
+                let address = address + offset;
+
+                match address {
+                    address if HIGH_RAM.contains(&address) => {
+                        self.high_ram[ (address - 0xFF80) as usize ] = data
+                    }
+                    0xFFFF => self.register.IR = data,
+                    _ => {
+                        self.cycle += 4;
+                        self.memory[address + offset] = data
+                    }
+                }
             }
             _ => panic!("Invalid operand {:?} to write word", operand),
         }
@@ -625,30 +650,31 @@ impl PushPop<u16> for CPU {
 mod cpu_tests {
     use super::*;
 
-    #[test]
-    fn should_fetch_opcode() {
-        let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
-        let current_cycle = cpu.cycle;
-        let current_program_counter = cpu.register.PC;
-
-        let opcode = cpu.fetch();
-
-        assert_eq!(opcode, 0xFF);
-        assert_eq!(cpu.cycle, current_cycle + 4);
-        assert_eq!(cpu.register.PC, current_program_counter + 1);
-    }
-
-    #[test]
-    fn should_decode_simple_instruction() {
-        let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
-        let instruction = cpu.decode(0x06);
-        assert_eq!(instruction, LD8(B, Word));
-    }
-
-    #[test]
-    fn should_decode_complex_instruction() {
-        let mut cpu = CPU::new(MemorySpace::new(&[0x37]));
-        let instruction = cpu.decode(0xCB);
-        assert_eq!(instruction, SWAP(A));
-    }
+    // #[test]
+    // fn should_fetch_opcode() {
+    //     let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
+    //     let current_cycle = cpu.cycle;
+    //     let current_program_counter = cpu.register.PC;
+    //
+    //     let opcode = cpu.fetch();
+    //
+    //     assert_eq!(opcode, 0xFF);
+    //     assert_eq!(cpu.cycle, current_cycle + 4);
+    //     assert_eq!(cpu.register.PC, current_program_counter + 1);
+    // }
 }
+//
+//     #[test]
+//     fn should_decode_simple_instruction() {
+//         let mut cpu = CPU::new(MemorySpace::new(&[0xFF]));
+//         let instruction = cpu.decode(0x06);
+//         assert_eq!(instruction, LD8(B, Word));
+//     }
+//
+//     #[test]
+//     fn should_decode_complex_instruction() {
+//         let mut cpu = CPU::new(MemorySpace::new(&[0x37]));
+//         let instruction = cpu.decode(0xCB);
+//         assert_eq!(instruction, SWAP(A));
+//     }
+// }

@@ -15,3 +15,5 @@ Cargo.lock
 
 # Documentation
 /docs
+
+.DS_Store

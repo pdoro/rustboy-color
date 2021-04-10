@@ -4,31 +4,49 @@ mod soc;
 mod memory;
 mod tests;
 mod utils;
-mod cartrigbe;
+mod cartridge;
+mod configuration;
 
 use chrono;
 use soc::cpu::CPU;
 use log::{debug, error, info};
 use memory::MemorySpace;
+use cartridge::cartridge::Cartridge;
 use fern::colors::{Color, ColoredLevelConfig};
-//use clap::App;
-use std::str::FromStr;
+use fern::Output;
+use std::{fs::File, io::{Read, BufReader}, str::FromStr};
+use color_eyre::eyre::Result;
+use clap::Clap;
+use configuration::Config;
 
-fn main() {
-    //let yaml = load_yaml!("../cli.yaml");
-    //let cfg = App::from_yaml(yaml).get_matches();
+fn main() -> Result<()> {
+    color_eyre::install()?;
 
-    let log_level = "trace"; //cfg.value_of("verbose").unwrap();
+    // let opts: Opts = Opts::parse();
+    let log_level = "INFO";
+    let cartridge = "Tetris.gb";
 
     setup_logger(log_level);
 
     info!("Starting rustboy emulator");
-    let mut memory = MemorySpace::default();
+
+    let file = File::open(cartridge).expect("Cartridge not found");
+    let mut reader = BufReader::new(file);
+    let mut blob = Vec::new();
+
+    reader.read_to_end(&mut blob);
+
+    let mut cartridge: Box<dyn Cartridge> = cartridge::cartridge::decode_cartridge(blob);
+    cartridge.report();
+
+    let mut memory = MemorySpace::new(cartridge);
     let mut cpu = CPU::new(memory);
     info!("CPU execution started");
 
     cpu.run();
-    info!("Execution finished")
+    info!("Execution finished");
+
+    Ok(())
 }
 
 fn setup_logger(level: &str) {

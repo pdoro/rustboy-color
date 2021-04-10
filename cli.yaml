@@ -12,8 +12,15 @@ args:
       multiple: false
       help: Sets the level of verbosity
       possible_values: [ error, warn, info, debug, trace, off ]
+  - game:
+        short: g
+        long: game
+        value_name: GAME
+        takes_value: true
+        multiple: false
+        help: Game ROM
   - gui:
-      short: g
+      short: u
       long: gui
       value_name: GUI_STATUS
       takes_value: true

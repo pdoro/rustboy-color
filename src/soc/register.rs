@@ -13,8 +13,13 @@ pub struct Registers {
     pub H: u8,
     pub L: u8,
 
+    // Stack Pointer
     pub SP: u16,
+    // Program Counter
     pub PC: u16,
+
+    // Interrupt Register
+    pub IR: u8,
 }
 
 pub enum Flags {
@@ -38,6 +43,8 @@ impl Default for Registers {
 
             SP: 0,
             PC: 0,
+
+            IR: 0,
         }
     }
 }
@@ -46,7 +53,8 @@ impl Default for Registers {
 impl Registers {
     // Special registers
     pub fn read_AF(&self) -> u16 {
-        as_u16(self.A, self.F)
+        (self.A, self.F).into()
+        //as_u16(self.A, self.F)
     }
     pub fn read_HL(&self) -> u16 {
         as_u16(self.H, self.L)

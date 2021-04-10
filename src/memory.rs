@@ -1,26 +1,30 @@
-use crate::cartridge::Cartridge;
 use log::{debug, info, trace};
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 use std::{fmt, ops};
+use crate::cartridge::cartridge::Cartridge;
 
 type Address = u16;
 type Byte = u8;
 type MemoryArea = Range<Address>;
 
 pub struct MemorySpace {
-    space: [u8; 65_536],
-    cartridge: Box<Cartrigbe>,
+    // 8KB Working RAM
+    // 8KB Video RAM
+    work_ram: [u8; 8192],
+    graphic_ram: [u8; 8192],
+
+    // create VideoController struct with oam ram in CPU
+    object_attribute_memory: [u8; 159],
+
+    cartridge: Box<dyn Cartridge>,
 }
 
 impl MemorySpace {
-    pub fn new(cartridge: Cartridge) -> MemorySpace {
-
-        let mut space = [0; 65_536];
-        let copy_range = CartridgeRam_RANGE.start..data.len();
-        space[copy_range].copy_from_slice(data);
-
+    pub fn new(cartridge: Box<dyn Cartridge>) -> MemorySpace {
         MemorySpace {
-            space,
+            work_ram: [0; 8192],
+            graphic_ram: [0; 8192],
+            object_attribute_memory: [0; 159],
             cartridge
         }
     }
@@ -34,13 +38,15 @@ const MEMORY_START: Address = 0x0000;
 const MEMORY_END: Address = 0xFFFF;
 
 // http://gameboy.mongenel.com/dmg/asmmemmap.html
+// TODO try to match on this const when rust allows
+// address if InterruptEnabledFlag_RANGE.contains(&address) =>
 const InterruptEnabledFlag_RANGE: MemoryArea  = 0xFFFF..0xFFFF;
 const HighRam_RANGE: MemoryArea               = 0xFF80..0xFFFE;
 const IORegisters_RANGE: MemoryArea           = 0xFF00..0xFF7F;
 const Unmapped_RANGE: MemoryArea              = 0xFEA0..0xFEFF;
 const ObjectAttributeMemory_RANGE: MemoryArea = 0xFE00..0xFE9F;
 const EchoRam_RANGE: MemoryArea               = 0xE000..0xFDFF;
-const WorkingRam_RANGE: MemoryArea            = 0xC000..0xCFFF;
+const WorkingRam_RANGE: MemoryArea            = 0xC000..0xDFFF;
 const CartridgeRam_RANGE: MemoryArea          = 0xA000..0xBFFF;
 const BackgroundMap_RANGE: MemoryArea         = 0x9800..0x9FFF;
 const TileRam_RANGE: MemoryArea               = 0x8000..0x97FF;
@@ -56,28 +62,58 @@ impl ops::Index<Address> for MemorySpace {
         } else {
             trace!("Reading memory address {:#X}", address);
 
-            match address as usize {
-                InterruptVector_RANGE => &self.space[address],
-                CartridgeRom_RANGE => {
-                    if self.cartridge_is_mapped() {
-                        &self.cartrigbe[address]
-                    } else {
-                        // Boot Rom
-                        &self[address]
-                    }
+            let data = match address {
+                // Interrupt Register
+                0xFFFF..=0xFFFF => {
+                    panic!("This address belongs to Interrupt Register. It should be dispatched by the CPU!")
+                },
+                // High Ram
+                0xFF80..=0xFFFE => {
+                    panic!("This address belongs to HighRam space. It should be dispatched by the CPU!")
+                },
+                // IO Ports
+                0xFF00..=0xFF7F => {
+                    unimplemented!()
                 }
-                TileRam_RANGE => &self.space[address],
-                BackgroundMap_RANGE => {}
-                CartridgeRam_RANGE => &self.cartrigbe[address],
-                WorkingRam_RANGE => &self.internal_ram[address],
-                EchoRam_RANGE => &self.echo_ram[address],
-                ObjectAttributeMemory_RANGE => {}
-                Unmapped_RANGE => {}
-                IORegisters_RANGE => {}
-                HighRam_RANGE => &self.space[address],
-                InterruptEnabledFlag_RANGE => {}
+                // Unmapped memory
+                0xFEA0..=0xFEFF => {
+                    panic!("Invalid access to unmapped memory")
+                },
+                // OAM memory
+                0xFE00..=0xFE9F => {
+                    &self.object_attribute_memory[(address - 0xFE00) as usize]
+                },
+                // Echo RAM
+                0xE000..=0xFDFF => {
+                    // 0xE000 == 0xC000
+                    &self.work_ram[(address - 0xE000) as usize]
+                },
+                // Work Ram
+                0xC000..=0xDFFF => {
+                    &self.work_ram[(address - 0xC000) as usize]
+                },
+                // External RAM (Cartridge)
+                0xA000..=0xBFFF => {
+                    // TODO check if cartridge has external RAM available?
+                    &self.cartridge[address]
+                },
+                // Graphics RAM
+                0x8000..=0x9FFF => {
+                    // Remember, space is only 16KB although the whole memory map is 64KB
+                    &self.graphic_ram[(address - 0x8000) as usize]
+                },
+                // Cartridge
+                0x0000..=0x7FFF => {
+                    if self.cartridge_is_mapped() {
+                        &self.cartridge[address]
+                    } else {
+                        &BOOT_ROM[address as usize]
+                    }
+                },
                 _ => panic!("Address {:#X} does not belong to memory space, cannot map to area", address),
-            }
+            };
+
+            data
         }
     }
 }
@@ -88,14 +124,14 @@ impl ops::IndexMut<Address> for MemorySpace {
             panic!("Invalid unsafe memory write to {:#X}", address);
         } else {
             trace!("Writing memory address {:#X}", address);
-            &mut self.0[address as usize]
+            &mut self[address]
         }
     }
 }
 
 impl fmt::Debug for MemorySpace {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Memory({:?} bytes)", self.0.len())
+        write!(f, "Memory({:?} bytes)", self.work_ram.len() + self.graphic_ram.len())
     }
 }
 

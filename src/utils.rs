@@ -1,11 +1,16 @@
-#[inline(always)]
-pub fn as_u16(x: u8, y: u8) -> u16 {
-    (x as u16) << 8 | (y as u16)
+
+impl Into<u16> for (u8, u8) {
+    #[inline(always)]
+    fn into(self) -> u16 {
+        (self.0 as u16) << 8 | (self.1 as u16)
+    }
 }
 
-#[inline(always)]
-pub fn hilo(x: u16) -> (u8, u8) {
-    ((x >> 8) as u8, x as u8)
+impl Into<(u8,u8)> for u16 {
+    #[inline(always)]
+    fn into(self) -> (u8, u8) {
+        ((self >> 8) as u8, self as u8)
+    }
 }
 
 // TODO review nth position is correct or reverse
