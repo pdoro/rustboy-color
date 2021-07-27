@@ -53,8 +53,7 @@ impl Default for Registers {
 impl Registers {
     // Special registers
     pub fn read_AF(&self) -> u16 {
-        (self.A, self.F).into()
-        //as_u16(self.A, self.F)
+        as_u16(self.A, self.F)
     }
     pub fn read_HL(&self) -> u16 {
         as_u16(self.H, self.L)

@@ -3,9 +3,9 @@ use std::ops::{Range, RangeInclusive};
 use std::{fmt, ops};
 use crate::cartridge::cartridge::Cartridge;
 
-type Address = u16;
+pub(crate) type Address = u16;
 type Byte = u8;
-type MemoryArea = Range<Address>;
+type MemoryArea = RangeInclusive<Address>;
 
 pub struct MemorySpace {
     // 8KB Working RAM
@@ -40,18 +40,18 @@ const MEMORY_END: Address = 0xFFFF;
 // http://gameboy.mongenel.com/dmg/asmmemmap.html
 // TODO try to match on this const when rust allows
 // address if InterruptEnabledFlag_RANGE.contains(&address) =>
-const InterruptEnabledFlag_RANGE: MemoryArea  = 0xFFFF..0xFFFF;
-const HighRam_RANGE: MemoryArea               = 0xFF80..0xFFFE;
-const IORegisters_RANGE: MemoryArea           = 0xFF00..0xFF7F;
-const Unmapped_RANGE: MemoryArea              = 0xFEA0..0xFEFF;
-const ObjectAttributeMemory_RANGE: MemoryArea = 0xFE00..0xFE9F;
-const EchoRam_RANGE: MemoryArea               = 0xE000..0xFDFF;
-const WorkingRam_RANGE: MemoryArea            = 0xC000..0xDFFF;
-const CartridgeRam_RANGE: MemoryArea          = 0xA000..0xBFFF;
-const BackgroundMap_RANGE: MemoryArea         = 0x9800..0x9FFF;
-const TileRam_RANGE: MemoryArea               = 0x8000..0x97FF;
-const CartridgeRom_RANGE: MemoryArea          = 0x0100..0x07FF;
-const InterruptVector_RANGE: MemoryArea       = 0x0000..0x00FF;
+const InterruptEnabledFlag_RANGE: MemoryArea  = 0xFFFF..=0xFFFF;
+const HighRam_RANGE: MemoryArea               = 0xFF80..=0xFFFE;
+const IORegisters_RANGE: MemoryArea           = 0xFF00..=0xFF7F;
+const Unmapped_RANGE: MemoryArea              = 0xFEA0..=0xFEFF;
+const ObjectAttributeMemory_RANGE: MemoryArea = 0xFE00..=0xFE9F;
+const EchoRam_RANGE: MemoryArea               = 0xE000..=0xFDFF;
+const WorkingRam_RANGE: MemoryArea            = 0xC000..=0xDFFF;
+const CartridgeRam_RANGE: MemoryArea          = 0xA000..=0xBFFF;
+const BackgroundMap_RANGE: MemoryArea         = 0x9800..=0x9FFF;
+const TileRam_RANGE: MemoryArea               = 0x8000..=0x97FF;
+const CartridgeRom_RANGE: MemoryArea          = 0x0100..=0x07FF;
+const InterruptVector_RANGE: MemoryArea       = 0x0000..=0x00FF;
 
 impl ops::Index<Address> for MemorySpace {
     type Output = Byte;

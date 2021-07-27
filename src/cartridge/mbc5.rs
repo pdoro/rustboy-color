@@ -1,28 +1,19 @@
 use crate::cartridge::cartridge::Cartridge;
 use core::ops;
 use std::ops::Range;
+use crate::memory::Address;
 
 pub struct Mbc5Cartridge {
     data: Vec<u8>,
 }
 
 impl Mbc5Cartridge {
-    pub fn new(blob: Vec<u8>) -> Mbc5Cartridge {
-        Mbc5Cartridge {
-            data : blob
-        }
+    pub fn new(data: Vec<u8>) -> Mbc5Cartridge {
+        Mbc5Cartridge { data }
     }
 }
 
-impl Cartridge for Mbc5Cartridge {
-    fn read(&self, address: u8) -> u8 {
-        unimplemented!()
-    }
-
-    fn write(&mut self, address: u8, data: u8) {
-        unimplemented!()
-    }
-}
+impl Cartridge for Mbc5Cartridge {}
 
 impl ops::Index<u16> for Mbc5Cartridge {
     type Output = u8;

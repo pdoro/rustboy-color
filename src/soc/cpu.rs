@@ -3,12 +3,12 @@ use crate::soc::instruction::{Instruction, Instruction::*, Operand, Operand::*};
 use crate::soc::register::{Flags, MathOps, Registers};
 use crate::utils::{as_u16, hilo};
 use log::{debug, info, trace};
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 type OpCode = u8;
-const HIGH_RAM: Range<u16> = 0xFF80..0xFFFE;
+const HIGH_RAM: RangeInclusive<u16> = 0xFF80..=0xFFFE;
 
-// #[derive(Debug)] TODO impl Debug manually
+#[derive(Debug)]
 pub struct CPU {
     pub register: Registers,
     pub memory: MemorySpace,
@@ -29,7 +29,7 @@ impl CPU {
             stopped: false,
             high_ram: [0; 126]
         };
-        debug!("CPU initialized"); // TODO add debug cpu
+        debug!("CPU initialized");
         cpu
     }
 

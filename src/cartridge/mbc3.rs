@@ -1,22 +1,19 @@
 use core::ops;
 use crate::cartridge::cartridge::Cartridge;
 use std::ops::Range;
+use crate::memory::Address;
 
 pub struct Mbc3Cartridge {
     data: Vec<u8>,
 }
 
 impl Mbc3Cartridge {
-    pub fn new(blob: Vec<u8>) -> Mbc3Cartridge {
-        Mbc3Cartridge {
-            data : blob
-        }
+    pub fn new(data: Vec<u8>) -> Mbc3Cartridge {
+        Mbc3Cartridge { data }
     }
 }
 
-impl Cartridge for Mbc3Cartridge {
-
-}
+impl Cartridge for Mbc3Cartridge {}
 
 impl ops::Index<u16> for Mbc3Cartridge {
     type Output = u8;

@@ -23,7 +23,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     // let opts: Opts = Opts::parse();
-    let log_level = "INFO";
+    let log_level = "TRACE";
     let cartridge = "Tetris.gb";
 
     setup_logger(log_level);

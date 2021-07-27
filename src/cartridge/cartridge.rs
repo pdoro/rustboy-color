@@ -6,7 +6,6 @@ use std::{
 };
 use log::{debug, error, info};
 use super::{
-    metadata,
     rom::RomOnly,
     mbc1::Mbc1Cartridge,
     mbc2::Mbc2Cartridge,
@@ -16,19 +15,17 @@ use super::{
 use ops::Range;
 use crate::utils::as_u16;
 use crate::soc::instruction::Instruction;
+use crate::memory::Address;
 
 const KB: usize = 1024;
 const MB: usize = KB * 1024;
 const CARTRIDGE_TYPE_LOCATION: usize = 0x0147;
 
 pub trait Cartridge :
-    ops::Index<u16, Output = u8> +
-    ops::Index<Range<u16>, Output = [u8]> +
-    ops::IndexMut<u16, Output = u8> +
+    ops::Index<Address, Output = u8> +
+    ops::Index<Range<Address>, Output = [u8]> +
+    ops::IndexMut<Address, Output = u8>
 {
-    fn read(&self, address: Address) -> u8;
-    fn write(&mut self, address: Address, data: u8);
-
     fn report(&self) {
         info!("[---------- Cartridge Metadata ----------]");
         info!("Title...........................{}", self.title());
@@ -66,10 +63,10 @@ pub trait Cartridge :
         }
     }
 
-    fn new_license_code(&self) -> String {
-        String::from_utf8_lossy(&self[0x0144..0x0145])
-            .into_owned()
-    }
+    // fn new_license_code(&self) -> String {
+    //     String::from_utf8_lossy(&self[0x0144..0x0145])
+    //         .into_owned()
+    // }
 
     fn sgb_flag(&self) -> bool {
         match self[0x0146] {
@@ -147,6 +144,73 @@ pub trait Cartridge :
         match self[0x014A] {
             0x00 => "Japanese",
             0x01 => "Non-Japanese",
+            _ => "Unknown"
+        }
+    }
+
+    fn new_license_code(&self) -> &'static str {
+        match (self[0x0144], self[0x0145]) {
+            (0x0, 0x0) => "none",
+            (0x0, 0x1) => "Nintendo R&D1",
+            (0x0, 0x8) => "Capcom",
+            (0x1, 0x3) => "Electronic Arts",
+            (0x1, 0x8) => "Hudson Soft",
+            (0x1, 0x9) => "b-ai",
+            (0x2, 0x0) => "kss",
+            (0x2, 0x2) => "pow",
+            (0x2, 0x4) => "PCM Complete",
+            (0x2, 0x5) => "san-x",
+            (0x2, 0x8) => "Kemco Japan",
+            (0x2, 0x9) => "seta",
+            (0x3, 0x0) => "Viacom",
+            (0x3, 0x1) => "Nintendo",
+            (0x3, 0x2) => "Bandai",
+            (0x3, 0x3) => "Ocean/Acclaim",
+            (0x3, 0x4) => "Konami",
+            (0x3, 0x5) => "Hector",
+            (0x3, 0x7) => "Taito",
+            (0x3, 0x8) => "Hudson",
+            (0x3, 0x9) => "Banpresto",
+            (0x4, 0x1) => "UbiSoft",
+            (0x4, 0x2) => "Atlus",
+            (0x4, 0x4) => "Malibu",
+            (0x4, 0x6) => "angel",
+            (0x4, 0x7) => "Bullet-Proof",
+            (0x4, 0x9) => "irem",
+            (0x5, 0x0) => "Absolute",
+            (0x5, 0x1) => "Acclaim",
+            (0x5, 0x2) => "Activision",
+            (0x5, 0x3) => "American sammy",
+            (0x5, 0x4) => "Konami",
+            (0x5, 0x5) => "Hi tech entertainment",
+            (0x5, 0x6) => "LJN",
+            (0x5, 0x7) => "Matchbox",
+            (0x5, 0x8) => "Mattel",
+            (0x5, 0x9) => "Milton Bradley",
+            (0x6, 0x0) => "Titus",
+            (0x6, 0x1) => "Virgin",
+            (0x6, 0x4) => "LucasArts",
+            (0x6, 0x7) => "Ocean",
+            (0x6, 0x9) => "Electronic Arts",
+            (0x7, 0x0) => "Infogrames",
+            (0x7, 0x1) => "Interplay",
+            (0x7, 0x2) => "Broderbund",
+            (0x7, 0x3) => "sculptured",
+            (0x7, 0x5) => "sci",
+            (0x7, 0x8) => "THQ",
+            (0x7, 0x9) => "Accolade",
+            (0x8, 0x0) => "misawa",
+            (0x8, 0x3) => "lozc",
+            (0x8, 0x6) => "tokuma shoten i*",
+            (0x8, 0x7) => "tsukuda ori*",
+            (0x9, 0x1) => "Chunsoft",
+            (0x9, 0x2) => "Video system",
+            (0x9, 0x3) => "Ocean/Acclaim",
+            (0x9, 0x5) => "Varie",
+            (0x9, 0x6) => "Yonezawa/s'pal",
+            (0x9, 0x7) => "Kaneko",
+            (0x9, 0x9) => "Pack in soft",
+            (0xA, 0x4) => "Konami (Yu-Gi-Oh!)",
             _ => "Unknown"
         }
     }
